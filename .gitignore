@@ -1,0 +1,55 @@
+# ============================================================
+#  The Expert — .gitignore
+#  Keeps secrets, personal data, and local cruft out of git.
+#  NOTE: git history is permanent. If a secret is ever committed,
+#  removing it later is NOT enough — rotate the key immediately.
+# ============================================================
+
+# --- Secrets & credentials (NEVER commit) ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+secrets.json
+**/apikey*
+**/api_key*
+**/*credentials*
+
+# --- The Expert's per-user learning data (personal) ---
+# The terminal edition stores ratings/notes/savings here:
+.claude/the-expert/
+*_profile.json
+*_session.json
+router-log.jsonl
+config.json
+
+# --- Python (terminal edition) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+build/
+dist/
+
+# --- Node / web tooling (if ever added) ---
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.cache/
+
+# --- OS / editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*~
+
+# --- Local scratch / personal notes ---
+scratch/
+NOTES.local.md
+TODO.local.md

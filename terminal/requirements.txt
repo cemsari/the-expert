@@ -1,0 +1,6 @@
+# True auto-switching router (Agent SDK version)
+claude-agent-sdk>=0.2.113
+
+# The SDK pulls these in normally; listed for clarity. On a clean machine
+# `pip install claude-agent-sdk` handles all of them for you.
+#   mcp, anyio, httpx, pydantic, jsonschema, attrs, ...

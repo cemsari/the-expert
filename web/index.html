@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Expert — model & effort router</title>
+<style>
+  /* ============ Design tokens ============
+     Identity: a calm judgment instrument. Not the cream/serif AI default,
+     not the acid-green-on-black default. Instead: warm slate "workshop"
+     palette, a mechanical mono display for the gauge/labels, humanist body.
+     Signature: the live "verdict gauge" that weighs each message as you type. */
+  :root{
+    --ink:#1a1d24; --panel:#22262f; --panel2:#2b303b; --line:#39404d;
+    --paper:#e9e6df; --muted:#9aa3b2; --soft:#c7cdd8;
+    --haiku:#5bbf8f;   /* green — light */
+    --sonnet:#d8a24a;  /* amber — standard */
+    --opus:#e0663f;    /* clay — heavy */
+    --fable:#b06fd6;   /* violet — manual */
+    --accent:#e0663f;
+    --radius:14px;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --body:'Inter',-apple-system,system-ui,sans-serif;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--ink);color:var(--paper);font-family:var(--body);
+    height:100vh;display:flex;flex-direction:column;overflow:hidden;
+    font-size:15px;line-height:1.5;
+  }
+  .topbar{
+    display:flex;align-items:center;gap:12px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:var(--panel);
+  }
+  .logo{font-family:var(--mono);font-weight:600;letter-spacing:.5px;font-size:15px}
+  .logo .sloth{font-size:18px}
+  .ver{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .topbar .spacer{flex:1}
+  .keybtn{
+    font-family:var(--mono);font-size:12px;background:var(--panel2);
+    border:1px solid var(--line);color:var(--soft);padding:6px 12px;
+    border-radius:8px;cursor:pointer;
+  }
+  .keybtn.set{color:var(--haiku);border-color:var(--haiku)}
+  .keybtn:hover{border-color:var(--accent)}
+
+  .main{flex:1;display:flex;min-height:0}
+  .chat{flex:1;display:flex;flex-direction:column;min-width:0}
+  .stream{flex:1;overflow-y:auto;padding:22px 26px;display:flex;flex-direction:column;gap:18px}
+  .side{
+    width:290px;border-left:1px solid var(--line);background:var(--panel);
+    padding:18px;overflow-y:auto;display:flex;flex-direction:column;gap:18px;
+  }
+  @media(max-width:820px){.side{display:none}}
+
+  /* messages */
+  .msg{max-width:760px}
+  .msg.you{align-self:flex-end;background:var(--panel2);border:1px solid var(--line);
+    padding:10px 14px;border-radius:var(--radius) var(--radius) 4px var(--radius)}
+  .msg.exp .who{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px;
+    display:flex;align-items:center;gap:8px}
+  .pill{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:20px;
+    border:1px solid currentColor;text-transform:uppercase;letter-spacing:.5px}
+  .pill.haiku{color:var(--haiku)} .pill.sonnet{color:var(--sonnet)}
+  .pill.opus{color:var(--opus)} .pill.fable{color:var(--fable)}
+  .answer{white-space:pre-wrap;word-wrap:break-word}
+  .answer table{border-collapse:collapse;margin:10px 0;font-size:13px}
+  .answer td,.answer th{border:1px solid var(--line);padding:5px 9px;text-align:left}
+  .answer code{font-family:var(--mono);background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:13px}
+  .answer pre{background:var(--panel);border:1px solid var(--line);padding:12px;border-radius:8px;overflow-x:auto;margin:10px 0}
+  .answer pre code{background:none;padding:0}
+
+  .note{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px}
+  .note.learn{color:var(--haiku)} .note.exp{color:var(--sonnet)} .note.direct{color:var(--fable)}
+
+  /* rating row */
+  .rate{display:flex;align-items:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .rate .star{cursor:pointer;font-size:18px;color:var(--line);transition:color .12s}
+  .rate .star.on,.rate .star:hover,.rate .star:hover~.star{color:var(--sonnet)}
+  .rate .star:hover~.star{color:var(--line)}
+  .rate input{flex:1;min-width:140px;background:var(--panel2);border:1px solid var(--line);
+    color:var(--paper);border-radius:8px;padding:6px 10px;font-family:var(--body);font-size:13px}
+  .rate button{font-family:var(--mono);font-size:11px;background:none;border:1px solid var(--line);
+    color:var(--soft);padding:6px 10px;border-radius:8px;cursor:pointer}
+  .rate button:hover{border-color:var(--accent)}
+  .redo{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;margin-top:6px;display:inline-block}
+
+  /* composer */
+  .composer{border-top:1px solid var(--line);padding:14px 20px;background:var(--panel)}
+  .verdict{display:flex;align-items:center;gap:10px;margin-bottom:8px;min-height:24px;
+    font-family:var(--mono);font-size:12px;color:var(--muted);transition:opacity .2s}
+  .gauge{display:flex;gap:3px}
+  .gauge .tick{width:26px;height:6px;border-radius:3px;background:var(--line);transition:all .2s}
+  .gauge .tick.haiku{background:var(--haiku)} .gauge .tick.sonnet{background:var(--sonnet)}
+  .gauge .tick.opus{background:var(--opus)} .gauge .tick.fable{background:var(--fable)}
+  .verdict .why{color:var(--soft)}
+  .composerRow{display:flex;gap:10px;align-items:flex-end}
+  .composerRow textarea{flex:1;background:var(--panel2);border:1px solid var(--line);
+    color:var(--paper);border-radius:var(--radius);padding:12px 14px;font-family:var(--body);
+    font-size:15px;resize:none;max-height:180px;line-height:1.4}
+  .composerRow textarea:focus{outline:none;border-color:var(--accent)}
+  .send{background:var(--accent);border:none;color:#fff;font-weight:600;padding:12px 20px;
+    border-radius:var(--radius);cursor:pointer;font-family:var(--body);font-size:14px}
+  .send:disabled{opacity:.4;cursor:default}
+  .override{display:flex;gap:6px;margin-top:8px;align-items:center;font-family:var(--mono);font-size:11px;color:var(--muted);flex-wrap:wrap}
+  .override .opt{padding:3px 9px;border:1px solid var(--line);border-radius:20px;cursor:pointer}
+  .override .opt.on{border-color:var(--accent);color:var(--paper)}
+
+  /* side panel cards */
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .card h3{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--muted);margin-bottom:10px;font-weight:600}
+  .big{font-family:var(--mono);font-size:26px;font-weight:600}
+  .big.save{color:var(--haiku)}
+  .sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .distrib{display:flex;height:8px;border-radius:4px;overflow:hidden;margin-top:10px;background:var(--line)}
+  .distrib span{display:block}
+  .legend{display:flex;gap:12px;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted)}
+  .legend i{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:4px;vertical-align:middle}
+  .lesson{font-size:12px;color:var(--soft);padding:6px 0;border-bottom:1px solid var(--line)}
+  .lesson:last-child{border:none}
+  .lesson .k{font-family:var(--mono);color:var(--muted)}
+  .empty{font-size:12px;color:var(--muted);font-style:italic}
+
+  /* key modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.on{display:flex}
+  .modalbox{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:26px;max-width:440px;width:90%}
+  .modalbox h2{font-family:var(--mono);font-size:16px;margin-bottom:8px}
+  .modalbox p{font-size:13px;color:var(--muted);margin-bottom:14px}
+  .modalbox input{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--paper);
+    border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;margin-bottom:12px}
+  .modalbox .row{display:flex;gap:10px}
+  .modalbox button{flex:1;padding:10px;border-radius:8px;border:none;cursor:pointer;font-family:var(--body);font-weight:600}
+  .modalbox .save{background:var(--accent);color:#fff}
+  .modalbox .cancel{background:var(--panel2);color:var(--soft);border:1px solid var(--line)}
+  .modalbox .disc{font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5}
+  .modalbox a{color:var(--haiku)}
+  .spin{display:inline-block;width:12px;height:12px;border:2px solid var(--line);
+    border-top-color:var(--accent);border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* welcome / onboarding */
+  .welcome{position:fixed;inset:0;background:rgba(16,18,23,.96);display:none;
+    align-items:center;justify-content:center;z-index:60;overflow-y:auto;padding:30px 16px}
+  .welcome.on{display:flex}
+  .wbox{max-width:860px;width:100%}
+  .wbox h1{font-family:var(--mono);font-size:22px;margin-bottom:6px}
+  .wbox .tag{color:var(--muted);font-size:14px;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-bottom:20px}
+  .choice{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px;display:flex;flex-direction:column;gap:8px;position:relative}
+  .choice.rec{border-color:var(--haiku)}
+  .badge{position:absolute;top:-9px;right:12px;background:var(--haiku);color:#10231a;
+    font-family:var(--mono);font-size:10px;font-weight:600;padding:2px 8px;border-radius:20px}
+  .choice h2{font-size:15px;font-family:var(--mono)}
+  .choice p{font-size:12.5px;color:var(--soft);line-height:1.5;flex:1}
+  .choice .cost{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .choice button{margin-top:6px;padding:9px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--paper);cursor:pointer;font-family:var(--body);font-weight:600;font-size:13px}
+  .choice.rec button{background:var(--haiku);border:none;color:#10231a}
+  .wtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .wtable th,.wtable td{border:1px solid var(--line);padding:6px 9px;text-align:left}
+  .wtable th{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .wtable td:first-child{color:var(--muted)}
+  details.compare{margin-top:4px}
+  details.compare summary{cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px}
+
+
+  .lesson.link{cursor:pointer}
+  .lesson.link:hover{color:var(--paper);border-color:var(--sonnet)}
+  @keyframes flashbg{0%{background:rgba(216,162,74,.25)}100%{background:transparent}}
+  .flash{animation:flashbg 1.6s ease-out;border-radius:8px}
+
+  #notesBox{max-height:150px;overflow-y:auto;padding-right:4px}
+  #notesBox::-webkit-scrollbar{width:6px}
+  #notesBox::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+
+  .resizer{width:6px;cursor:col-resize;background:transparent;flex:0 0 auto;
+    border-left:1px solid var(--line);transition:background .15s}
+  .resizer:hover,.resizer.drag{background:var(--accent)}
+  .card{position:relative}
+  .card .grip{position:absolute;top:12px;right:12px;cursor:grab;color:var(--line);
+    font-size:13px;user-select:none;letter-spacing:-2px}
+  .card .grip:hover{color:var(--muted)}
+  .card.dragging{opacity:.5}
+  .card.dropTarget{border-color:var(--accent)}
+  @media(max-width:820px){.resizer{display:none}}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="logo" onclick="openWelcome()" style="cursor:pointer" title="Back to start"><span class="sloth">🦥</span> THE EXPERT</span>
+    <span class="ver">v1.0.0</span>
+    <span class="spacer"></span>
+    <button class="keybtn" id="keyBtn" onclick="openKey()">Connect API key</button>
+    <button class="keybtn" onclick="openWelcome()">⌂ Home</button>
+    <button class="keybtn" onclick="newChat()">New chat</button>
+    <button class="keybtn" onclick="if(confirm('Clear all learning, ratings and savings on this device?')){resetAll()}">Reset</button>
+  </div>
+
+  <div class="main">
+    <div class="chat">
+      <div class="stream" id="stream"></div>
+      <div class="composer">
+        <div class="verdict" id="verdict" style="opacity:0">
+          <div class="gauge" id="gauge"><span class="tick"></span><span class="tick"></span><span class="tick"></span></div>
+          <span id="verdictText">—</span>
+        </div>
+        <div class="composerRow">
+          <textarea id="input" rows="1" placeholder="Ask anything. I'll weigh it as you type…"
+            oninput="onType()" onkeydown="onKey(event)"></textarea>
+          <button class="send" id="sendBtn" onclick="send()">Send</button>
+        </div>
+        <div class="override" id="override"></div>
+      </div>
+    </div>
+
+    <div class="resizer" id="resizer"></div>
+    <div class="side" id="side">
+      <div class="card" id="card-balance" draggable="false"><span class="grip" title="Drag to reorder">⠿</span>
+        <h3>💳 API balance <span style="float:right"><span class="redo" onclick="setBudget()">set / resync</span></span></h3>
+        <div class="big" id="budgetLeft">—</div>
+        <div class="sub" id="budgetSub">enter your console balance once — I'll count it down live</div>
+        <div class="sub" style="margin-top:6px;font-size:10px">Opus 4.8 $5/$25 · Sonnet 5 $2/$10* · Haiku 4.5 $1/$5 · Fable 5 $10/$50 per MTok · *intro thru Aug 31</div>
+      </div>
+      <div class="card" id="card-savings" draggable="false"><span class="grip" title="Drag to reorder">⠿</span>
+        <h3>Saved vs always-Opus</h3>
+        <div class="big save" id="savedTotal">$0.0000</div>
+        <div class="sub" id="savedSub">no turns yet · baseline: Opus 4.8 rates</div>
+        <div class="distrib" id="distrib"></div>
+        <div class="legend">
+          <span><i style="background:var(--haiku)"></i>Haiku</span>
+          <span><i style="background:var(--sonnet)"></i>Sonnet</span>
+          <span><i style="background:var(--opus)"></i>Opus</span>
+        </div>
+      </div>
+      <div class="card" id="card-rating" draggable="false"><span class="grip" title="Drag to reorder">⠿</span>
+        <h3>Average rating</h3>
+        <div class="big" id="avgRating">—</div>
+        <div class="sub" id="ratingSub">rate answers to train me</div>
+      </div>
+      <div class="card" id="card-notes" draggable="false"><span class="grip" title="Drag to reorder">⠿</span>
+        <h3>📝 Your notes <span style="float:right"><span class="redo" onclick="clearNotesOnly()">clear</span></span></h3>
+        <div id="notesBox"><div class="empty">Notes you add with ratings appear here — they shape my routing.</div></div>
+      </div>
+      <div class="card" id="card-learned" draggable="false"><span class="grip" title="Drag to reorder">⠿</span>
+        <h3>What I've learned about you</h3>
+        <div class="sub" style="margin-top:-4px;margin-bottom:8px">I sort your questions by difficulty and remember which model you liked best for each.</div>
+        <div id="lessons"><div class="empty">Nothing yet. Rate a few answers and add notes like “too long, use haiku”.</div></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- welcome / choose your path -->
+  <div class="welcome" id="welcome">
+    <div class="wbox">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <h1>🦥 THE EXPERT</h1>
+        <span class="redo" id="backToChat" style="display:none" onclick="closeWelcome()">← back to chat</span>
+      </div>
+      <div class="tag">Weighs every message and picks the right Claude model & effort — so easy questions stay cheap and hard ones get the big brain. Choose how you want to run it:</div>
+      <div class="cards">
+        <div class="choice rec">
+          <span class="badge" id="keyBadge">RECOMMENDED</span>
+          <h2>🔑 Your own key</h2>
+          <p>Real Claude answers, right here. Live routing gauge as you type, ratings that teach it, honest savings tracking. Your key stays in this browser only and bills your own Anthropic account.</p>
+          <div class="cost">~$0.01 per question · key takes 2 min at console.anthropic.com</div>
+          <button id="keyCardBtn" onclick="chooseMode('byok')">Connect a key</button>
+        </div>
+        </div>
+        <div class="choice">
+          <h2>🖥️ Terminal edition</h2>
+          <p>Have Claude Pro or Max? The terminal version runs on your subscription's monthly credit — £0 extra, no API key. Real Claude, but in a Mac Terminal window rather than this page.</p>
+          <div class="cost">£0 with a Claude subscription · Mac only</div>
+          <button onclick="showTerminalInfo()">How to get it</button>
+        </div>
+      </div>
+      <details class="compare"><summary>Compare the three side by side</summary>
+      <table class="wtable">
+        <tr><th></th><th>🔑 Your key</th><th>🖥️ Terminal</th></tr>
+        <tr><td>Needs</td><td>API key (2 min)</td><td>Claude Pro/Max + Mac</td></tr>
+        <tr><td>Cost</td><td>~$0.01/question, your account</td><td>£0 extra (plan credit)</td></tr>
+        <tr><td>Real Claude answers</td><td>✅</td><td>✅</td></tr>
+        <tr><td>Live gauge as you type</td><td>✅</td><td>✖</td></tr>
+        <tr><td>Learning, ratings, savings</td><td>✅</td><td>✅</td></tr>
+        <tr><td>Runs in</td><td>this page</td><td>Terminal window</td></tr>
+      </table></details>
+    </div>
+  </div>
+
+  <!-- terminal info -->
+  <div class="modal" id="termModal">
+    <div class="modalbox">
+      <h2>🖥️ Terminal edition (free with your subscription)</h2>
+      <p>1. Get <b>the-expert.zip</b> (from the project page) and unzip it.<br>
+         2. Double-click <b>install.command</b> inside the folder.<br>
+         3. Sign in once via Claude Code (`claude` → log in) — usage then bills your plan's monthly credit, not a key.</p>
+      <div class="row"><button class="cancel" onclick="document.getElementById('termModal').classList.remove('on')">Back</button></div>
+      <div class="disc">A web page can't use a Claude subscription — Anthropic only allows that through Claude Code sign-in on your own machine, which is exactly what the terminal edition does.</div>
+    </div>
+  </div>
+
+  <!-- key modal -->
+  <div class="modal" id="keyModal">
+    <div class="modalbox">
+      <h2>🔑 Connect your Anthropic key</h2>
+      <p>Bring your own key. It's stored only in this browser (localStorage) and sent directly to Anthropic — never to any other server.</p>
+      <input id="keyInput" type="password" placeholder="sk-ant-…" autocomplete="off">
+      <div class="row">
+        <button class="cancel" onclick="closeKey()">Cancel</button>
+        <button class="save" onclick="saveKey()">Save key</button>
+      </div>
+      <div class="row" id="disconnectRow" style="display:none;margin-top:8px">
+        <button class="cancel" style="color:var(--opus);border-color:var(--opus)" onclick="disconnectKey()">Disconnect this key</button>
+      </div>
+      <div class="disc">Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>. Your usage bills your own account. Because this runs fully in your browser, requests use Anthropic's API directly.</div>
+    </div>
+  </div>
+
+<script>
+/* ============================================================
+   THE EXPERT — web v1.0.  Pure-browser, BYOK, localStorage.
+   The routing brain, ratings, directives, experiments, and
+   savings math are ported from the terminal v4.2 tool.
+   ============================================================ */
+
+// ---- Model constants (mirror tracker.py) ----
+const MODELS = {
+  haiku:  {id:"claude-haiku-4-5-20251001", price:[1,5],   label:"Haiku",  ver:"4.5",
+           adaptive:false},
+  sonnet: {id:"claude-sonnet-5",           price:[2,10],  label:"Sonnet", ver:"5",
+           adaptive:true},   // introductory $2/$10 thru Aug 31 2026, then $3/$15
+  opus:   {id:"claude-opus-4-8",           price:[5,25],  label:"Opus",   ver:"4.8",
+           adaptive:true},
+  fable:  {id:"claude-fable-5",            price:[10,50], label:"Fable",  ver:"5",
+           adaptive:true},
+  // --- still-callable legacy models (opt-in via Advanced) ---
+  "opus-4-7":  {id:"claude-opus-4-7",   price:[5,25],  label:"Opus",   ver:"4.7", adaptive:true,  legacy:true},
+  "opus-4-6":  {id:"claude-opus-4-6",   price:[5,25],  label:"Opus",   ver:"4.6", adaptive:true,  legacy:true},
+  "opus-4-5":  {id:"claude-opus-4-5-20251101", price:[5,25], label:"Opus", ver:"4.5", adaptive:false, legacy:true},
+  "sonnet-4-6":{id:"claude-sonnet-4-6", price:[3,15],  label:"Sonnet", ver:"4.6", adaptive:true,  legacy:true},
+  "sonnet-4-5":{id:"claude-sonnet-4-5-20250929", price:[3,15], label:"Sonnet", ver:"4.5", adaptive:false, legacy:true, retires:"Sep 29 2026"},
+};
+const CORE_TIERS=["haiku","sonnet","opus","fable"];
+function activeTiers(){
+  return showAdvanced ? Object.keys(MODELS) : CORE_TIERS;
+}
+// full display name helper
+function modelName(t){return "Claude "+MODELS[t].label+" "+MODELS[t].ver;}
+function modelShort(t){return MODELS[t].label+" "+MODELS[t].ver;}
+const TIER_ORDER=["haiku","sonnet","opus"];
+const DEFAULT_EFFORT={haiku:"low",sonnet:"medium",opus:"high",fable:"high"};
+const TARGET_SAT=0.75, MIN_SAMPLES=3, EXPLORE_MIN=2, EXPLORE_TRIAL=3;
+
+
+// ---- Mode: 'byok' (bring your own key) ----
+let MODE = localStorage.getItem("expert_mode") || "";
+function updateWelcomeCards(){
+  const kb=document.getElementById("keyBadge"), kbtn=document.getElementById("keyCardBtn");
+  if(API_KEY){kb.textContent="CONNECTED ✓"; kbtn.textContent="Continue";}
+  else{kb.textContent="RECOMMENDED"; kbtn.textContent="Connect a key";}
+}
+function openWelcome(){
+  updateWelcomeCards();
+  document.getElementById("welcome").classList.add("on");
+  document.getElementById("backToChat").style.display = MODE ? "inline" : "none";
+}
+function closeWelcome(){document.getElementById("welcome").classList.remove("on");}
+function chooseMode(m){
+  MODE=m; localStorage.setItem("expert_mode",m);
+  document.getElementById("welcome").classList.remove("on");
+  if(m==="byok" && !API_KEY) openKey();
+  updateKeyBtn();
+}
+
+function showTerminalInfo(){document.getElementById("termModal").classList.add("on");}
+
+
+// ---- localStorage state ----
+const LS={key:"expert_key", profile:"expert_profile", ledger:"expert_ledger"};
+function load(k,def){try{return JSON.parse(localStorage.getItem(k))??def}catch{return def}}
+function save(k,v){
+  try{
+    localStorage.setItem(k,JSON.stringify(v));
+    return true;
+  }catch(e){
+    // QuotaExceededError (or Safari private-mode): prune oldest ledger rows and retry.
+    if(k===LS.ledger && Array.isArray(v) && v.length>40){
+      try{
+        localStorage.setItem(k,JSON.stringify(v.slice(-Math.floor(v.length/2))));
+        if(typeof ledger!=="undefined")ledger=v.slice(-Math.floor(v.length/2));
+        return true;
+      }catch(_){/* fall through to warn */}
+    }
+    if(!save._warned){
+      save._warned=true;
+      console.warn("The Expert: browser storage is full or unavailable; some data may not persist.",e);
+      try{
+        const el=document.getElementById("savedSub");
+        if(el)el.textContent="⚠️ browser storage full — old turns are being trimmed to keep going";
+      }catch(_){}
+    }
+    return false;
+  }
+}
+let API_KEY = localStorage.getItem(LS.key) || "";
+let profile = load(LS.profile,{buckets:{},directives:{},notes:{},experiments:{},effort_sat:{}});
+let ledger  = load(LS.ledger,[]);
+let override = null;    // {tier,effort} chosen manually for the next send
+let showAdvanced = localStorage.getItem("expert_advanced")==="1";
+let lastTurn = null;    // {prompt, comment} for redo
+let history = load("expert_history", []);   // [{role, content, tier?}] — the conversation
+let lastWasQuestion = false, lastTier = null;
+// restore continuation state from saved history
+(function(){
+  const la=[...history].reverse().find(m=>m.role==="assistant");
+  if(la){lastTier=la.tier||null;lastWasQuestion=looksLikeQuestion(la.content);}
+})();
+
+// port of terminal _looks_like_question (v3.2, incl. Turkish)
+function looksLikeQuestion(text){
+  const t=(text||"").trim(); if(!t)return false;
+  const tail=t.slice(-200).toLowerCase();
+  const endsQ=t.trimEnd().endsWith("?")||tail.includes("?");
+  const asks=["could you clarify","did you mean","which ","do you want","can you confirm",
+    "would you like","should i","let me know","a few options","to confirm","clarify",
+    "approve","approval","please confirm","shall i","want me to",
+    "hangi","ister misin","edeyim mi","onayl","misin","mısın"].some(p=>tail.includes(p));
+  return endsQ&&(asks||t.length<400);
+}
+
+// ================= ROUTING BRAIN (port of router_core.py) =================
+const SIMPLE=[/^\s*\d+\s*[\+\-\*/x×]\s*\d+\s*=?\s*\??\s*$/i,
+  /^\s*(hi|hey|hello|thanks|thank you|yo|ok|okay|merhaba|selam)\b/i,
+  /^\s*what('?s| is) the (time|date|day)\b/i];
+const COMPLEX=["architect","architecture","refactor","redesign","design a system",
+  "prove","derive","optimi","debug","race condition","concurren","distributed",
+  "migrate","migration","security review","threat model","root cause","trade-off",
+  "tradeoff","why does","reason about","end-to-end","multi-file","across the codebase",
+  "whole repo","mimari","yeniden yapılandır","hata ayıkla","kanıtla"];
+const MEDIUM=["write","add","implement","fix","create","update","test","explain",
+  "convert","translate","summari","review","improve","yaz","açıkla","özetle",
+  "düzelt","oluştur","ekle","karşılaştır","çevir"];
+function kw(t,list){t=t.toLowerCase();return list.filter(w=>t.includes(w)).length}
+
+function heuristic(prompt){
+  const t=prompt.trim(), n=t.length, code=/```/.test(t);
+  if(SIMPLE.some(r=>r.test(t))||(n<=25&&!code))
+    return{tier:"haiku",effort:"low",conf:.92,reason:"short / trivial",src:"heuristic"};
+  const cx=kw(t,COMPLEX), md=kw(t,MEDIUM);
+  const scope=/\b(entire|whole|all|across|every|complete)\b/i.test(t);
+  if(cx>=1) return{tier:"opus",effort:"high",
+    conf:(cx>=2||scope||code)?.85:.72,reason:"complex signals",src:"heuristic"};
+  if(scope&&md>=1) return{tier:"opus",effort:"high",conf:.75,reason:"broad scope",src:"heuristic"};
+  if(md>=1||code) return{tier:"sonnet",effort:md&&cx?"high":"medium",conf:.7,reason:"standard task",src:"heuristic"};
+  return{tier:"sonnet",effort:"medium",conf:.4,reason:"no strong signal",src:"heuristic"};
+}
+
+// bucket = the heuristic tier (stable "kind of prompt" key)
+function bucketOf(prompt){return heuristic(prompt).tier}
+function fableWorthy(p){
+  const t=p.trim(),n=t.length,hits=kw(t,COMPLEX);
+  const scope=/\b(entire|whole|all|across|every|complete)\b/i.test(t);
+  return hits>=5||(hits>=4&&(scope||n>300))||(hits>=3&&n>1500);
+}
+
+// apply learned directives / best-tier / experiments (port of learner.adjust)
+function decide(prompt){
+  // Replying to The Expert's question? Stay in the same conversation lane:
+  // inherit the previous tier instead of re-classifying "yes" as trivial.
+  if(lastWasQuestion && lastTier && history.length){
+    return{d:{tier:lastTier,effort:DEFAULT_EFFORT[lastTier],conf:.95,
+      reason:"answering my question — continuing on "+MODELS[lastTier].label,
+      src:"continuation"},bucket:bucketOf(prompt)};
+  }
+  let d=heuristic(prompt);
+  const bucket=d.tier;
+  // 1. directive (explicit instruction) wins
+  const dr=profile.directives[bucket];
+  if(dr&&(dr.tier||dr.effort)){
+    if(dr.tier)d.tier=dr.tier; if(dr.effort)d.effort=dr.effort;
+    d.src="directed"; d.reason=`your instruction: “${(dr.comment||"").slice(0,40)}”`;
+    return{d,bucket};
+  }
+  const stats=profile.buckets[bucket]||{};
+  // 2. best-rated tier
+  const rated=Object.entries(stats).filter(([t,s])=>TIER_ORDER.includes(t)&&s.n>=MIN_SAMPLES);
+  if(rated.length){
+    rated.sort((a,b)=>(b[1].sat/b[1].n)-(a[1].sat/a[1].n)||TIER_ORDER.indexOf(a[0])-TIER_ORDER.indexOf(b[0]));
+    const[best,bs]=rated[0];
+    if(best!==d.tier&&bs.sat/bs.n>=.5){
+      d.tier=best;d.src="learned";d.reason=`you prefer ${best} here (${fmt(bs.sat)}/${bs.n}👍)`;
+      return{d,bucket};
+    }
+  }
+  // 3. running experiment
+  const exp=profile.experiments[bucket];
+  if(exp&&exp.status==="running"){
+    d.tier=exp.trial;d.src="experiment";
+    d.reason=`trying ${exp.trial} to beat ~${exp.baseline.toFixed(1)}/5 (${exp.seen}/${EXPLORE_TRIAL})`;
+    return{d,bucket};
+  }
+  // 4. start experiment if mediocre
+  const own=stats[d.tier];
+  if(own&&own.n>=EXPLORE_MIN){
+    const rate=own.sat/own.n, idx=TIER_ORDER.indexOf(d.tier);
+    if(rate<TARGET_SAT&&idx<TIER_ORDER.length-1){
+      const trial=TIER_ORDER[idx+1], prior=profile.experiments[bucket];
+      if(!(prior&&prior.status==="reverted"&&prior.trial===trial)){
+        profile.experiments[bucket]={status:"running",trial,from:d.tier,
+          baseline:rate*4+1,seen:0,sat:0};save(LS.profile,profile);
+        d.tier=trial;d.src="experiment";
+        d.reason=`~${(rate*4+1).toFixed(1)}/5 on ${TIER_ORDER[idx]} — trying ${trial} to chase 4+`;
+        return{d,bucket};
+      }
+    }
+  }
+  return{d,bucket};
+}
+function fmt(x){return Number.isInteger(x)?x:x.toFixed(1)}
+// plain-English name for a routing bucket (haiku/sonnet/opus -> difficulty)
+const BUCKET_LABEL={haiku:"easy questions",sonnet:"medium questions",opus:"hard questions"};
+const STOP=new Set("the a an of to in on for and or is are was were be been what which who how why when where can could would should do does did you me my your our this that these those with about into from as at it its list give show tell write explain make please all their them they he she i we".split(" "));
+function topicOf(prompt){
+  const words=(prompt||"").toLowerCase().replace(/[^a-zçğıöşü0-9\s]/gi," ")
+    .split(/\s+/).filter(w=>w.length>2&&!STOP.has(w));
+  // prefer capitalized proper nouns from the ORIGINAL text
+  const proper=(prompt||"").match(/\b([A-Z][a-zçğıöşü]+)\b/g);
+  if(proper&&proper.length) return proper.slice(0,3).join(" ");
+  return words.slice(0,3).map(w=>w[0].toUpperCase()+w.slice(1)).join(" ")||"General";
+}
+function bucketLabel(b){return BUCKET_LABEL[b]||b+" questions";}
+
+// ================= LIVE SUGGESTION (as you type) =================
+function onType(){
+  const ta=document.getElementById("input");
+  ta.style.height="auto";ta.style.height=Math.min(ta.scrollHeight,180)+"px";
+  const txt=ta.value.trim();
+  const v=document.getElementById("verdict");
+  if(!txt){v.style.opacity=0;override=null;renderOverride();return}
+  const {d}=decide(txt);
+  const eff=effective(d);
+  v.style.opacity=1;
+  const g=document.getElementById("gauge").children;
+  const rank={haiku:1,sonnet:2,opus:3,fable:3}[eff.tier];
+  [...g].forEach((t,i)=>{t.className="tick"+(i<rank?" "+eff.tier:"")});
+  const fhint=(eff.tier==="opus"&&fableWorthy(txt))?" · <span style='color:var(--fable)'>🔮 Fable-grade? tap Fable to escalate</span>":"";
+  const why=override?"your override":d.reason;
+  document.getElementById("verdictText").innerHTML=
+    `<b style="color:var(--${eff.tier})" title="${modelName(eff.tier)}">${modelShort(eff.tier)}</b> · ${eff.effort} effort `+
+    `<span class="why">— ${why}</span>`+fhint;
+  renderOverride(d);
+}
+function effective(d){
+  return{
+    tier: (override&&override.tier)||d.tier,
+    effort:(override&&override.effort)||
+           (override&&override.tier?DEFAULT_EFFORT[override.tier]:d.effort)
+  };
+}
+function renderOverride(d){
+  const box=document.getElementById("override");
+  if(!d){box.innerHTML="";return}
+  const eff=effective(d);
+  const efforts=["low","medium","high"];
+  box.innerHTML="<span>model:</span>"+activeTiers().map(t=>{
+    const lg=MODELS[t].legacy?" style='opacity:.75'":"";
+    const rt=MODELS[t].retires?` — retires ${MODELS[t].retires}`:"";
+    return `<span class="opt ${eff.tier===t?'on':''}"${lg} onclick="setTierOverride('${t}')" title="${modelName(t)}${rt}">${modelShort(t)}${MODELS[t].legacy?" ·old":""}</span>`;
+  }).join("")
+   +` <span class="opt" style="border-style:dashed" onclick="toggleAdvanced()" title="Show older still-available Claude models">${showAdvanced?"− fewer":"+ older models"}</span>`
+   +"<span style='margin-left:12px'>effort:</span>"+efforts.map(e=>
+    `<span class="opt ${eff.effort===e?'on':''}" onclick="setEffortOverride('${e}')">${e}</span>`).join("");
+}
+function toggleAdvanced(){
+  showAdvanced=!showAdvanced;
+  localStorage.setItem("expert_advanced",showAdvanced?"1":"0");
+  onType();
+}
+function setTierOverride(t){
+  override=override||{};
+  override.tier=t;
+  if(!override.effortExplicit)override.effort=DEFAULT_EFFORT[t];
+  onType();
+}
+function setEffortOverride(e){
+  override=override||{};
+  override.effort=e; override.effortExplicit=true;
+  onType();
+}
+
+// Haiku classifier for ambiguous prompts (terminal parity). Fail-open.
+async function classifyWithHaiku(prompt){
+  try{
+    const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),6000);
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      signal:ctl.signal,
+      headers:{"content-type":"application/json","x-api-key":API_KEY,
+        "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:MODELS.haiku.id,max_tokens:100,
+        system:"You are a routing classifier. Reply ONLY compact JSON {\"tier\":\"haiku|sonnet|opus\",\"effort\":\"low|medium|high\"}. haiku=trivial, sonnet=normal work, opus=architecture/deep reasoning.",
+        messages:[{role:"user",content:prompt.slice(0,4000)}]})});
+    clearTimeout(to);
+    if(!r.ok)return null;
+    const data=await r.json();
+    const txt=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("")
+      .replace(/```json|```/g,"").trim();
+    const p=JSON.parse(txt);
+    if(!MODELS[p.tier]||!["low","medium","high"].includes(p.effort))return null;
+    return{tier:p.tier,effort:p.effort};
+  }catch{return null}
+}
+
+// ================= SEND =================
+function onKey(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}}
+async function send(){
+  const ta=document.getElementById("input");
+  const prompt=ta.value.trim();
+  if(!prompt)return;
+  if(!API_KEY){openKey();return}
+  let {d,bucket}=decide(prompt);
+  // ambiguous + real key -> ask Haiku (terminal parity), fail-open to heuristic
+  if(API_KEY && d.src==="heuristic" && d.conf<0.6 && !(override&&override.tier)){
+    const hk=await classifyWithHaiku(prompt);
+    if(hk){d={...d,tier:hk.tier,effort:hk.effort,conf:.8,src:"haiku",reason:"classifier call"};}
+  }
+  if(override){
+    const eff=effective(d);
+    d={...d,tier:eff.tier,effort:eff.effort,src:"override",reason:"you chose it"};
+  }
+  override=null;
+  ta.value="";onType();
+
+  window._lastPrompt=prompt;
+  addYou(prompt);
+  const el=addExpert(d);
+  setBusy(true);
+  try{
+    const res = await callAnthropic(d.tier,d.effort,prompt);
+    el.querySelector(".answer").innerHTML=renderMd(res.text);
+    history.push({role:"user",content:prompt});
+    history.push({role:"assistant",content:res.text,tier:d.tier});
+    save("expert_history",history);
+    el.id="msg-h"+(history.length-1);
+    lastTier=d.tier;
+    lastWasQuestion=looksLikeQuestion(res.text);
+    recordTurn({prompt,bucket,tier:d.tier,effort:d.effort,src:d.src,
+      tin:res.tin,tout:res.tout,cost:res.cost});
+    maybeCsvButton(el,res.text);
+    const _lastRec=ledger[ledger.length-1];
+    if(_lastRec&&_lastRec._quip){
+      const q=document.createElement("div");q.className="note";
+      q.textContent=_lastRec._quip+`  · $${_lastRec.cost.toFixed(4)}`;
+      el.appendChild(q);
+    }
+    attachRating(el,{prompt,bucket,tier:d.tier,effort:d.effort,text:res.text},
+                 lastWasQuestion);
+    lastTurn={prompt,comment:null,tier:d.tier,effort:d.effort};
+  }catch(err){
+    el.querySelector(".answer").innerHTML=friendlyError(err);
+  }
+  setBusy(false);
+  document.getElementById("stream").scrollTop=1e9;
+}
+function setBusy(b){
+  document.getElementById("sendBtn").disabled=b;
+}
+
+function friendlyError(err){
+  const m=(err.message||"").toLowerCase();
+  const wrap=t=>`<span style="color:var(--opus)">${t}</span>`;
+  if(m.includes("credit balance")) return wrap("Your Anthropic API account has no credits yet.")+
+    " API billing is separate from a Claude subscription. Add credits once at "+
+    "<a href='https://console.anthropic.com/settings/billing' target='_blank' style='color:var(--haiku)'>console.anthropic.com → Billing</a> "+
+    "($5 minimum — lasts a year, ~$0.01 per question here), then just resend.";
+  if(m.includes("401")||m.includes("invalid x-api-key")||m.includes("authentication"))
+    return wrap("That API key wasn't accepted.")+" Check it (top right) — it should start with sk-ant- and be active in your console.";
+  if(m.includes("429")||m.includes("rate")) return wrap("Rate limited.")+" Wait a few seconds and resend.";
+  if(m.includes("failed to fetch")||m.includes("networkerror"))
+    return wrap("Couldn't reach Anthropic.")+" Check your internet connection, or an ad-blocker may be blocking api.anthropic.com.";
+  return wrap("Couldn't complete that: "+esc(err.message).slice(0,140)+".")+" Try again.";
+}
+
+// ================= ANTHROPIC CALL (direct, BYOK) =================
+async function callAnthropic(tier,effort,prompt,noThinking){
+  const m=MODELS[tier];
+  const msgs=[...history.slice(-20).map(({role,content})=>({role,content})),
+    {role:"user",content:prompt}];
+  const MAXTOK={low:1024,medium:2048,high:8192};
+  const body={model:m.id,max_tokens:MAXTOK[effort]||2048,messages:msgs,
+    system:"When presenting tabular data (lists of records, comparisons, or anything the user wants in Excel/CSV/table form), format it as a GitHub-style markdown table using | pipes. Do not use plain-text column alignment."};
+  // high effort -> thinking. Adaptive models (Sonnet 5, Opus 4.8, Fable 5)
+  // REJECT manual {type:"enabled"} with a 400; they use adaptive instead.
+  if(effort==="high" && MODELS[tier].adaptive && !noThinking)
+    body.thinking={type:"adaptive"};
+  else if(effort==="high" && tier!=="haiku" && !MODELS[tier].adaptive && !noThinking)
+    body.thinking={type:"enabled",budget_tokens:4000};
+  const r=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",
+    headers:{"content-type":"application/json","x-api-key":API_KEY,
+      "anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify(body),
+  });
+  if(!r.ok){
+    const errTxt=await r.text();
+    // some model/param combos reject thinking — retry once without it
+    if(r.status===400&&/thinking/i.test(errTxt)&&!noThinking)
+      return callAnthropic(tier,effort,prompt,true);
+    throw new Error(r.status+" "+errTxt.slice(0,120));
+  }
+  const data=await r.json();
+  const text=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+  const u=data.usage||{};
+  const tin=(u.input_tokens||0), tout=(u.output_tokens||0);
+  const [pi,po]=m.price;
+  const cost=(tin*pi+tout*po)/1e6;
+  return{text,tin,tout,cost};
+}
+
+const QUIPS_SAVED=[
+  s=>`Saved $${s.saved.toFixed(4)} — the sloth stays hydrated. 🦥`,
+  s=>`That's ${s.pct}% off the Opus price. Your wallet just did a tiny fist pump.`,
+  s=>`${modelShort(s.tier)} handled it. Opus never even had to put trousers on.`,
+  s=>`Routed to ${s.tier} and pocketed $${s.saved.toFixed(4)}. Compound interest, but for laziness. 🦥`,
+  s=>`Efficiency level: ${s.tier}. Savings: $${s.saved.toFixed(4)}. Smugness: priceless.`];
+const QUIPS_OPUS=[
+  ()=>`No savings this time — this one needed the big brain. Money well burned. 🔥`,
+  ()=>`Full Opus deployed. Your question was flattered, honestly.`];
+const QUIPS_ZERO=[
+  ()=>`Barely anything saved — tiny question, tiny stakes. The sloth shrugs. 🦥`,
+  ()=>`Rounding-error savings. Ask me something harder.`];
+function quip(t,totalSaved,prevTotal){
+  if(Math.floor(totalSaved/0.25)>Math.floor(prevTotal/0.25)&&totalSaved>0)
+    return `🏆 MILESTONE: $${totalSaved.toFixed(2)} saved lifetime — ${Math.round(100*totalSaved/4)}% of a flat white. The sloth salutes you. 🦥`;
+  const s={saved:t.saved,tier:t.tier,pct:t.baseline?Math.round(100*t.saved/t.baseline):0};
+  const pick=a=>a[Math.floor(Math.random()*a.length)](s);
+  if(t.tier==="opus"||t.tier==="fable")return pick(QUIPS_OPUS);
+  if(t.saved<0.0005)return pick(QUIPS_ZERO);
+  return pick(QUIPS_SAVED);
+}
+
+// ================= SAVINGS + LEDGER =================
+function recordTurn(t){
+  const [oi,oo]=MODELS.opus.price;
+  const baseline=(t.tin*oi+t.tout*oo)/1e6;
+  const saved=Math.max(0,baseline-t.cost);
+  const prevTotal=ledger.reduce((a,x)=>a+(x.saved||0),0);
+  t.baseline=baseline;t.saved=saved;t.rating=null;t.ts=Date.now();
+  ledger.push(t);save(LS.ledger,ledger);
+  t._quip="💸 "+quip(t,prevTotal+saved,prevTotal);
+  renderStats();
+}
+function realSpend(){return ledger.reduce((a,t)=>a+(t.cost||0),0)}
+function setBudget(){
+  const cur=load("expert_budget",null);
+  const v=prompt("What does console.anthropic.com → Billing show as your remaining balance right now? (just the number, e.g. 4.86)",
+                 cur?String(cur.start):"5.00");
+  if(v===null)return;
+  const n=parseFloat(v);
+  if(isNaN(n)||n<0){alert("Please enter a number like 4.86");return}
+  save("expert_budget",{start:n,spendAtSet:realSpend(),ts:Date.now()});
+  renderBudget();
+}
+function renderBudget(){
+  const b=load("expert_budget",null);
+  const el=document.getElementById("budgetLeft"),sub=document.getElementById("budgetSub");
+  if(!el)return;
+  if(!b){el.textContent="—";return}
+  const left=b.start-(realSpend()-b.spendAtSet);
+  el.textContent="≈ $"+Math.max(0,left).toFixed(4);
+  el.style.color = left>1 ? "var(--haiku)" : left>0.2 ? "var(--sonnet)" : "var(--opus)";
+  const days=Math.floor((Date.now()-b.ts)/864e5);
+  sub.textContent=`estimate · set ${days===0?"today":days+"d ago"} · only counts spend from this app — resync after using your key elsewhere`;
+  if(left<=0.2&&left>0)sub.textContent="⚠️ running low — top up at console.anthropic.com · "+sub.textContent;
+}
+function renderStats(){
+  const totalSaved=ledger.reduce((a,t)=>a+(t.saved||0),0);
+  const spent=ledger.reduce((a,t)=>a+(t.cost||0),0);
+  const base=ledger.reduce((a,t)=>a+(t.baseline||0),0);
+  document.getElementById("savedTotal").textContent="$"+totalSaved.toFixed(4);
+  const pct=base?Math.round(100*totalSaved/base):0;
+  document.getElementById("savedSub").textContent=
+    ledger.length?`${ledger.length} turns · ${pct}% under always-Opus · spent $${spent.toFixed(4)}`
+    :"no turns yet · baseline: Opus 4.8 rates";
+  // distribution
+  const counts={haiku:0,sonnet:0,opus:0,fable:0};
+  ledger.forEach(t=>counts[t.tier]=(counts[t.tier]||0)+1);
+  const tot=ledger.length||1;
+  document.getElementById("distrib").innerHTML=["haiku","sonnet","opus"].map(t=>
+    `<span style="width:${100*counts[t]/tot}%;background:var(--${t})"></span>`).join("");
+  // ratings
+  const rated=ledger.filter(t=>t.rating);
+  if(rated.length){
+    const avg=rated.reduce((a,t)=>a+t.rating,0)/rated.length;
+    document.getElementById("avgRating").textContent=avg.toFixed(1)+" / 5";
+    document.getElementById("ratingSub").textContent=`${rated.length} rated`;
+  }
+  renderLessons();
+  renderBudget();
+}
+function renderLessons(){
+  const box=document.getElementById("lessons");
+  const out=[];
+  for(const[b,tiers]of Object.entries(profile.buckets)){
+    const rated=Object.entries(tiers).filter(([t,s])=>s.n>=MIN_SAMPLES);
+    if(!rated.length)continue;
+    rated.sort((a,b2)=>(b2[1].sat/b2[1].n)-(a[1].sat/a[1].n));
+    const[best,s]=rated[0];
+    out.push(`<div class="lesson">For <span class="k">${bucketLabel(b)}</span> → I use <b>${modelShort(best)}</b> <span style="color:var(--muted)">(you liked it ${Math.round(100*s.sat/s.n)}% of ${s.n})</span></div>`);
+  }
+  for(const[b,dr]of Object.entries(profile.directives)){
+    const w=[dr.tier,dr.effort].filter(Boolean).join("/");
+    out.push(`<div class="lesson">🧭 For <span class="k">${bucketLabel(b)}</span> → <b>${w}</b> <span style="color:var(--muted)">(your rule)</span></div>`);
+  }
+  for(const[b,e]of Object.entries(profile.experiments)){
+    if(e.status==="running")out.push(`<div class="lesson">🧪 For <span class="k">${bucketLabel(b)}</span> → testing <b>${modelShort(e.trial)}</b> <span style="color:var(--muted)">(${e.seen} of ${EXPLORE_TRIAL} tries)</span></div>`);
+  }
+  box.innerHTML=out.length?out.join(""):'<div class="empty">Nothing yet. Rate a few answers and add notes like “too long, use haiku”.</div>';
+  renderNotes();
+}
+function noteRowLabeled(prefix,b,text,msgId,label){
+  const alive=msgId&&document.getElementById(msgId);
+  const cls=alive?"lesson link":"lesson";
+  const click=alive?` onclick="jumpTo('${msgId}')" title="Show me where I wrote this"`:` title="From an earlier conversation"`;
+  const head=label?`<span class="k">${prefix}${esc(label)}:</span> `:(prefix?`<span class="k">${prefix}</span>`:"");
+  return `<div class="${cls}"${click}>${head}“${esc(text)}”${alive?" ↗":""}</div>`;
+}
+function noteRow(prefix,b,text,msgId,label){return noteRowLabeled(prefix,b,text,msgId,label||null);}
+function renderNotes(){
+  const nb=document.getElementById("notesBox");
+  // build one time-ordered list: plain notes + directive-notes
+  let all=[];
+  (profile.noteLog||[]).forEach(n=>all.push({prefix:"",bucket:n.bucket,text:n.text,topic:n.topic,msgId:n.msgId,ts:n.ts}));
+  for(const[b,dr]of Object.entries(profile.directives||{})){
+    if(dr.comment)all.push({prefix:"🧭 ",bucket:b,text:dr.comment.slice(0,80),msgId:dr.msgId,ts:dr.ts||0});
+  }
+  // migrate any legacy notes that predate the flat log
+  if(!(profile.noteLog||[]).length){
+    for(const[b,notes]of Object.entries(profile.notes||{})){
+      (notes||[]).forEach(n=>{
+        const text=typeof n==="string"?n:n.text, msgId=typeof n==="string"?null:n.msgId;
+        all.push({prefix:"",bucket:b,text,msgId,ts:0});
+      });
+    }
+  }
+  if(!all.length){nb.innerHTML='<div class="empty">Notes you add with ratings appear here — they shape my routing.</div>';return;}
+  all.sort((a,b)=>(b.ts||0)-(a.ts||0));           // newest first
+  nb.innerHTML=all.slice(0,5).map(n=>{
+    const label=n.topic&&n.topic.trim()?n.topic:null;   // no topic -> no fake label
+    return noteRowLabeled(n.prefix,n.bucket,n.text,n.msgId,label);
+  }).join("");
+}
+function jumpTo(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  el.scrollIntoView({behavior:"smooth",block:"center"});
+  el.classList.remove("flash");void el.offsetWidth;el.classList.add("flash");
+  setTimeout(()=>el.classList.remove("flash"),1700);
+}
+
+// ================= LEARNING (port of learner.record) =================
+function parseDirective(comment){
+  if(!comment)return{};
+  const toks=comment.toLowerCase().replace(/,/g," ").split(/\s+/);
+  const tier=toks.find(t=>MODELS[t]);
+  const effort=toks.find(t=>["low","medium","high"].includes(t));
+  return{tier,effort};
+}
+function recordRating(bucket,tier,effort,score,comment,overridden,msgId,promptText){
+  const _ratingTopic=promptText?topicOf(promptText):"";
+  const signal=(score-1)/4;
+  // comment → directive or note
+  if(comment){
+    const {tier:dt,effort:de}=parseDirective(comment);
+    if(dt||de){profile.directives[bucket]={tier:dt,effort:de,comment,ts:Date.now(),msgId};overridden=true;}
+    else{
+      profile.noteLog=profile.noteLog||[];
+      profile.noteLog.push({text:comment,bucket,topic:_ratingTopic||"",msgId,ts:Date.now()});
+      profile.noteLog=profile.noteLog.slice(-50);
+      // keep legacy per-bucket store too (harmless, used by nothing critical)
+    }
+  }
+  const w=overridden?2:1;
+  const b=profile.buckets[bucket]=profile.buckets[bucket]||{};
+  const s=b[tier]=b[tier]||{n:0,sat:0};
+  s.n+=w;s.sat+=w*signal;
+  if(signal>=.75){profile.effort_sat[effort]=(profile.effort_sat[effort]||0)+w;}
+  // conclude experiment
+  const exp=profile.experiments[bucket];
+  let expNote=null;
+  if(exp&&exp.status==="running"&&tier===exp.trial){
+    exp.seen++;exp.sat+=signal;
+    if(exp.seen>=EXPLORE_TRIAL){
+      const avg=(exp.sat/exp.seen)*4+1;
+      if(avg>=exp.baseline+0.5){exp.status="adopted";
+        expNote=`✅ ${exp.trial} lifted these from ~${exp.baseline.toFixed(1)} to ~${avg.toFixed(1)}/5 — keeping it`;}
+      else{exp.status="reverted";
+        expNote=`↩️ ${exp.trial} only got ~${avg.toFixed(1)}/5 vs ~${exp.baseline.toFixed(1)} — not worth the cost`;}
+    }
+  }
+  save(LS.profile,profile);
+  renderStats();
+  return expNote;
+}
+
+// ================= UI: messages & rating =================
+function addYou(text){
+  const s=document.getElementById("stream");
+  const d=document.createElement("div");d.className="msg you";d.textContent=text;
+  s.appendChild(d);s.scrollTop=1e9;
+}
+function addExpert(dec){
+  const s=document.getElementById("stream");
+  const wrap=document.createElement("div");wrap.className="msg exp";
+  wrap.innerHTML=`<div class="who">
+      <span class="pill ${dec.tier}" title="${modelName(dec.tier)}">${modelShort(dec.tier)}</span>
+      <span>effort ${dec.effort} · ${dec.src}</span></div>
+    ${dec.src!=="heuristic"&&dec.src!=="override"?`<div class="note ${dec.src==='learned'?'learn':dec.src==='experiment'?'exp':dec.src==='directed'?'direct':''}">${dec.reason}</div>`:""}
+    <div class="answer"><span class="spin"></span> thinking…</div>`;
+  s.appendChild(wrap);s.scrollTop=1e9;return wrap;
+}
+function attachRating(el,ctx,askedBack){
+  const r=document.createElement("div");r.className="rate";
+  if(askedBack){
+    r.innerHTML=`<span class="note">❔ I asked you a question — just type your answer below, the conversation continues. <span class="redo" id="rateAnyway">rate this reply anyway</span></span>`;
+    el.appendChild(r);
+    r.querySelector("#rateAnyway").onclick=()=>{r.remove();attachRating(el,ctx,false);};
+    return;
+  }
+  let chosen=0;
+  r.innerHTML=[1,2,3,4,5].map(i=>`<span class="star" data-i="${i}">★</span>`).join("")+
+    `<input placeholder="add a note e.g. “too long, use haiku next time”">`+
+    `<button>Save</button>`;
+  const stars=r.querySelectorAll(".star");
+  stars.forEach(st=>st.onclick=()=>{chosen=+st.dataset.i;
+    stars.forEach(x=>x.classList.toggle("on",+x.dataset.i<=chosen));});
+  const inp=r.querySelector("input"), btn=r.querySelector("button");
+  btn.onclick=()=>{
+    const comment=inp.value.trim();
+    if(!chosen&&!comment)return;
+    const note=recordRating(ctx.bucket,ctx.tier,ctx.effort,chosen||3,comment,false,el.id,ctx.prompt);
+    // update the ledger row's rating
+    for(let i=ledger.length-1;i>=0;i--){if(ledger[i].prompt===ctx.prompt&&!ledger[i].rating){ledger[i].rating=chosen||3;break;}}
+    save(LS.ledger,ledger);renderStats();
+    let msg=chosen?`Rated ${chosen}/5. `:"";
+    const {tier:dt,effort:de}=parseDirective(comment);
+    if(dt||de)msg+=`🧭 I'll use ${[dt,de].filter(Boolean).join("/")} for ${ctx.bucket}-type prompts now.`;
+    else if(comment)msg+="📝 Noted.";
+    if(note)msg+=" "+note;
+    r.innerHTML=`<span class="note learn">${msg}</span> <span class="redo" onclick='redo(${JSON.stringify(ctx.prompt)}, ${JSON.stringify(comment)})'>↻ redo with this feedback</span>`;
+  };
+  el.appendChild(r);
+}
+function redo(prompt,comment){
+  const full=comment?`${prompt}\n\n[My feedback on your last answer: ${comment}. Please redo accordingly.]`:prompt+"\n\n[Please try again, better.]";
+  document.getElementById("input").value=full;onType();send();
+}
+
+// ================= CSV export for table answers =================
+function extractTables(md){
+  const out=[];const lines=(md||"").split("\n");let cur=[];
+  for(const ln of lines){
+    if(/^\s*\|.*\|\s*$/.test(ln))cur.push(ln);
+    else{if(cur.length>=2)out.push(pipeRows(cur));cur=[];}
+  }
+  if(cur.length>=2)out.push(pipeRows(cur));
+  // also: code blocks holding tab / space-aligned / csv-ish data
+  for(const m of (md||"").matchAll(/```\w*\n([\s\S]*?)```/g)){
+    const ls=m[1].split("\n").map(l=>l.replace(/\s+$/,""))
+      .filter(l=>l.trim()&&!/^[\s\-=_]+$/.test(l));
+    if(ls.length<3)continue;
+    const t=gridRows(ls,"\t")||gridRows(ls,null)||csvRows(ls);
+    if(t)out.push(t);
+  }
+  return out;
+}
+function pipeRows(rows){
+  return rows.filter(r=>!/^\s*\|[\s:\-|]+\|\s*$/.test(r))
+    .map(r=>r.trim().replace(/^\|/,"").replace(/\|$/,"")
+      .split("|").map(c=>c.trim().replace(/\*\*/g,"")));
+}
+function gridRows(ls,delim){
+  const split=l=>delim?l.split(delim):l.trim().split(/\s{2,}/);
+  const rows=ls.map(l=>split(l).map(c=>c.trim()));
+  const cols=rows[0].length;
+  if(cols<2)return null;
+  const good=rows.filter(r=>r.length===cols);
+  if(good.length/rows.length<0.8)return null;
+  return good;
+}
+function csvRows(ls){
+  const rows=ls.map(l=>l.split(","));
+  const cols=rows[0].length;
+  if(cols<2)return null;
+  if(rows.filter(r=>r.length===cols).length/rows.length<0.9)return null;
+  return rows.map(r=>r.map(c=>c.trim()));
+}
+function csvEscape(c){return /[",\n;]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;}
+function downloadCsv(md){
+  const tabs=extractTables(md);if(!tabs.length)return;
+  const csv="\uFEFF"+tabs.map(t=>t.map(r=>r.map(csvEscape).join(",")).join("\n")).join("\n\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  const d=new Date(),p=n=>String(n).padStart(2,"0");
+  a.download=`expert-table-${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.csv`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+function maybeCsvButton(el,rawText){
+  if(!extractTables(rawText).length)return;
+  const b=document.createElement("div");
+  b.innerHTML=`<span class="redo">⬇ Download CSV — opens in Excel</span>`;
+  b.style.marginTop="8px";
+  b.querySelector(".redo").onclick=()=>downloadCsv(rawText);
+  el.appendChild(b);
+}
+
+// ================= tiny markdown (tables, code, bold) =================
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function renderMd(t){
+  t=esc(t);
+  // code fences
+  t=t.replace(/```(\w*)\n([\s\S]*?)```/g,(m,l,c)=>`<pre><code>${c}</code></pre>`);
+  // tables
+  t=t.replace(/((?:^\|.*\|\s*\n)+)/gm,block=>{
+    const rows=block.trim().split("\n").filter(r=>r.includes("|"));
+    if(rows.length<2)return block;
+    const cells=r=>r.split("|").slice(1,-1).map(c=>c.trim());
+    let html="<table>";
+    cells(rows[0]).forEach; 
+    html+="<tr>"+cells(rows[0]).map(c=>`<th>${c}</th>`).join("")+"</tr>";
+    rows.slice(2).forEach(r=>{html+="<tr>"+cells(r).map(c=>`<td>${c}</td>`).join("")+"</tr>"});
+    return html+"</table>";
+  });
+  t=t.replace(/`([^`]+)`/g,"<code>$1</code>");
+  t=t.replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+  return t;
+}
+
+// ================= KEY MODAL =================
+function openKey(){
+  document.getElementById("keyInput").value=API_KEY;
+  document.getElementById("disconnectRow").style.display=API_KEY?"flex":"none";
+  document.getElementById("keyModal").classList.add("on");
+}
+function disconnectKey(){
+  if(!confirm("Disconnect your API key from this browser? Your learning and savings stay; you just won't be able to send until you reconnect a key."))return;
+  API_KEY="";localStorage.removeItem(LS.key);
+  MODE="byok";localStorage.setItem("expert_mode","byok");
+  closeKey();updateKeyBtn();
+}
+function closeKey(){document.getElementById("keyModal").classList.remove("on");}
+function saveKey(){
+  API_KEY=document.getElementById("keyInput").value.trim();
+  localStorage.setItem(LS.key,API_KEY);
+  if(API_KEY){MODE="byok";localStorage.setItem("expert_mode","byok");}
+  closeKey();updateKeyBtn();
+}
+function updateKeyBtn(){
+  const b=document.getElementById("keyBtn");
+  if(API_KEY){b.textContent="Key connected ✓";b.classList.add("set");}
+  else{b.textContent="Connect API key";b.classList.remove("set");}
+}
+function clearNotesOnly(){
+  if(!confirm("Clear just your notes? (Your model preferences and savings stay.)"))return;
+  profile.noteLog=[];profile.notes={};save(LS.profile,profile);renderStats();
+}
+function newChat(){
+  history=[];save("expert_history",history);
+  lastWasQuestion=false;lastTier=null;
+  document.getElementById("stream").innerHTML="";
+}
+function resetAll(){
+  localStorage.removeItem(LS.profile);localStorage.removeItem(LS.ledger);
+  profile={buckets:{},directives:{},notes:{},experiments:{},effort_sat:{}};
+  ledger=[];save(LS.profile,profile);save(LS.ledger,ledger);
+  newChat();renderStats();
+}
+
+
+// ---------- side panel: resize / collapse / reorder ----------
+window._initPanel=function(){
+  const s=document.getElementById("side"),rz=document.getElementById("resizer");
+  const w=localStorage.getItem("expert_sideW");if(w)s.style.width=w+"px";
+  let startX,startW;
+  rz.addEventListener("mousedown",e=>{
+    startX=e.clientX;startW=s.getBoundingClientRect().width;
+    rz.classList.add("drag");document.body.style.userSelect="none";
+    const move=ev=>{let nw=startW+(startX-ev.clientX);nw=Math.max(220,Math.min(560,nw));s.style.width=nw+"px";};
+    const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);
+      rz.classList.remove("drag");document.body.style.userSelect="";
+      localStorage.setItem("expert_sideW",parseInt(s.style.width));};
+    document.addEventListener("mousemove",move);document.addEventListener("mouseup",up);
+  });
+  const order=JSON.parse(localStorage.getItem("expert_cardOrder")||"null");
+  if(order){order.forEach(id=>{const el=document.getElementById(id);if(el)s.appendChild(el);});}
+  let dragEl=null;
+  s.querySelectorAll(".card").forEach(card=>{
+    const grip=card.querySelector(".grip");if(!grip)return;
+    grip.addEventListener("mousedown",()=>card.setAttribute("draggable","true"));
+    card.addEventListener("dragstart",()=>{dragEl=card;card.classList.add("dragging");});
+    card.addEventListener("dragend",()=>{
+      card.classList.remove("dragging");card.setAttribute("draggable","false");
+      s.querySelectorAll(".card").forEach(c=>c.classList.remove("dropTarget"));dragEl=null;
+      localStorage.setItem("expert_cardOrder",JSON.stringify([...s.querySelectorAll(".card")].map(c=>c.id)));
+    });
+    card.addEventListener("dragover",e=>{
+      e.preventDefault();if(!dragEl||dragEl===card)return;
+      const r=card.getBoundingClientRect();const before=(e.clientY-r.top)/r.height<0.5;
+      s.querySelectorAll(".card").forEach(c=>c.classList.remove("dropTarget"));
+      card.classList.add("dropTarget");
+      s.insertBefore(dragEl,before?card:card.nextSibling);
+    });
+  });
+};
+
+// ================= INIT =================
+// re-render saved conversation
+history.forEach((m,i)=>{
+  if(m.role==="user")addYou(m.content);
+  else{const el=addExpert({tier:m.tier||"sonnet",effort:DEFAULT_EFFORT[m.tier||"sonnet"],src:"heuristic",reason:""});
+    el.querySelector(".answer").innerHTML=renderMd(m.content);
+    el.id="msg-h"+i;
+    maybeCsvButton(el,m.content);}
+});
+updateKeyBtn();renderStats();
+if(window._initPanel)_initPanel();
+if(!MODE && !API_KEY){updateWelcomeCards();document.getElementById("welcome").classList.add("on");}
+else if(MODE==="byok" && !API_KEY){setTimeout(openKey,400);}
+</script>
+</body>
+</html>
