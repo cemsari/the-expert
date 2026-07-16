@@ -12,6 +12,10 @@ export function Composer() {
   const [busy, setBusy] = useState(false);
   const [histIdx, setHistIdx] = useState(-1);
   const [showTpl, setShowTpl] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(
+    typeof localStorage !== "undefined" && localStorage.getItem("expert_advanced") === "1"
+  );
+  const tiers: AnyTier[] = showAdvanced ? (Object.keys(MODELS) as AnyTier[]) : CORE_TIERS;
 
   function recall(dir: "up" | "down") {
     const i = historyStep(promptHistory.length, histIdx, dir);
@@ -112,12 +116,17 @@ export function Composer() {
       {trimmed && (
         <div className="override">
           <span>model:</span>
-          {CORE_TIERS.map((t) => (
-            <span key={t} className={"opt" + (effTier === t ? " on" : "")} title={modelName(t)}
+          {tiers.map((t) => (
+            <span key={t} className={"opt" + (effTier === t ? " on" : "")} title={modelName(t) + (MODELS[t].retires ? " — retires " + MODELS[t].retires : "")}
+              style={MODELS[t].legacy ? { opacity: 0.75 } : undefined}
               onClick={() => setOverride((o) => ({ ...o, tier: t, effort: o?.effortExplicit ? o.effort : DEFAULT_EFFORT[t] }))}>
-              {modelShort(t)}
+              {modelShort(t)}{MODELS[t].legacy ? " ·old" : ""}
             </span>
           ))}
+          <span className="opt" style={{ borderStyle: "dashed" }} title="Show older still-available Claude models"
+            onClick={() => { const v = !showAdvanced; setShowAdvanced(v); localStorage.setItem("expert_advanced", v ? "1" : "0"); }}>
+            {showAdvanced ? "− fewer" : "+ older models"}
+          </span>
           <span style={{ marginLeft: 12 }}>effort:</span>
           {(["low", "medium", "high"] as Effort[]).map((e) => (
             <span key={e} className={"opt" + (effEffort === e ? " on" : "")}

@@ -153,3 +153,41 @@ export function friendlyError(err: Error): string {
     return "Couldn't reach Anthropic. Check your connection, or an ad-blocker may be blocking api.anthropic.com.";
   return "Couldn't complete that: " + err.message.slice(0, 140);
 }
+
+
+/** Classify an ambiguous prompt with a cheap Haiku call. Fail-open: returns null. */
+export async function classifyWithHaiku(
+  apiKey: string, prompt: string
+): Promise<{ tier: AnyTier; effort: Effort } | null> {
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: ctl.signal,
+      headers: headers(apiKey),
+      body: JSON.stringify({
+        model: MODELS.haiku.id,
+        max_tokens: 100,
+        system:
+          'You are a routing classifier. Reply ONLY compact JSON ' +
+          '{"tier":"haiku|sonnet|opus","effort":"low|medium|high"}. ' +
+          "haiku=trivial, sonnet=normal work, opus=architecture/deep reasoning.",
+        messages: [{ role: "user", content: prompt.slice(0, 4000) }],
+      }),
+    });
+    clearTimeout(to);
+    if (!r.ok) return null;
+    const data = await r.json();
+    const txt = (data.content || [])
+      .filter((b: { type: string }) => b.type === "text")
+      .map((b: { text: string }) => b.text).join("")
+      .replace(/```json|```/g, "").trim();
+    const p = JSON.parse(txt);
+    if (!(p.tier in MODELS)) return null;
+    if (!["low", "medium", "high"].includes(p.effort)) return null;
+    return { tier: p.tier, effort: p.effort };
+  } catch {
+    return null;  // fail-open: heuristic stands
+  }
+}

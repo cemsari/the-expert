@@ -5,7 +5,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [Unreleased] — v2.0.0 candidate
+
+### Parity achieved
+A feature-by-feature audit against the canonical `web/index.html` found five
+real gaps, now closed: the **API budget meter**, **opt-in legacy models**, the
+**Haiku classifier** for ambiguous prompts (fail-open), **note jump-links** with
+flash highlight, and **drag-to-resize** panel. All 24 canonical features are
+present. 61 tests passing; production build clean.
+
+**The React edition is now ready to become v2.0.0.**
 
 ### Added — React edition, Phase 2 (`react/`)
 

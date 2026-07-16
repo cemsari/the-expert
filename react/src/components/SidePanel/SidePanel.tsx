@@ -8,7 +8,7 @@ const BUCKET_LABEL: Record<string, string> = {
 const fmt = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 
 export function SidePanel() {
-  const { ledger, profile } = useExpert();
+  const { ledger, profile, budget, setBudget } = useExpert();
   const totalSaved = ledger.reduce((a, r) => a + (r.saved || 0), 0);
   const spent = ledger.reduce((a, r) => a + (r.cost || 0), 0);
   const base = ledger.reduce((a, r) => a + (r.baseline || 0), 0);
@@ -39,8 +39,47 @@ export function SidePanel() {
 
   const notes = [...profile.noteLog].reverse().slice(0, 5);
 
+  // budget meter (estimate; only counts spend made in this app)
+  const realSpend = ledger.reduce((a, r) => a + (r.cost || 0), 0);
+  const left = budget ? budget.start - (realSpend - budget.spendAtSet) : null;
+  const leftColor = left == null ? "var(--muted)"
+    : left > 1 ? "var(--haiku)" : left > 0.2 ? "var(--sonnet)" : "var(--opus)";
+
+  function askBudget() {
+    const v = window.prompt(
+      "What does console.anthropic.com → Billing show as your remaining balance? (e.g. 4.86)",
+      budget ? String(budget.start) : "5.00"
+    );
+    if (v == null) return;
+    const n = parseFloat(v);
+    if (isNaN(n) || n < 0) { alert("Please enter a number like 4.86"); return; }
+    setBudget(n);
+  }
+
+  function jumpTo(id?: string) {
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+    setTimeout(() => el.classList.remove("flash"), 1700);
+  }
+
   return (
-    <div className="side">
+    <div className="side" style={{ width: "100%" }}>
+      <div className="card" id="card-balance">
+        <h3>💳 API balance <span style={{ float: "right" }}>
+          <span className="redo" onClick={askBudget}>set / resync</span></span></h3>
+        <div className="big" style={{ color: leftColor }}>
+          {left == null ? "—" : "≈ $" + Math.max(0, left).toFixed(4)}
+        </div>
+        <div className="sub">
+          {left == null
+            ? "enter your console balance once — I'll count it down live"
+            : (left <= 0.2 ? "⚠️ running low — top up at console.anthropic.com · " : "") +
+              "estimate · only counts spend from this app — resync after using your key elsewhere"}
+        </div>
+      </div>
       <div className="card">
         <h3>Saved vs always-Opus</h3>
         <div className="big save">${totalSaved.toFixed(4)}</div>
@@ -53,9 +92,16 @@ export function SidePanel() {
       </div>
       <div className="card">
         <h3>📝 Your notes</h3>
-        {notes.length ? notes.map((n, i) => (
-          <div className="lesson" key={i}><span className="k">{n.topic || BUCKET_LABEL[n.bucket] || n.bucket}:</span> “{n.text}”</div>
-        )) : <div className="empty">Notes you add with ratings appear here.</div>}
+        {notes.length ? notes.map((n, i) => {
+          const alive = n.msgId && typeof document !== "undefined" && document.getElementById(n.msgId);
+          return (
+            <div className={"lesson" + (alive ? " link" : "")} key={i}
+              onClick={() => alive && jumpTo(n.msgId)}
+              title={alive ? "Show me where I wrote this" : "From an earlier conversation"}>
+              <span className="k">{n.topic || BUCKET_LABEL[n.bucket] || n.bucket}:</span> “{n.text}”{alive ? " ↗" : ""}
+            </div>
+          );
+        }) : <div className="empty">Notes you add with ratings appear here.</div>}
       </div>
       <div className="card">
         <h3>What I've learned about you</h3>

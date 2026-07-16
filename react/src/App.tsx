@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useExpert } from "./store/useExpert";
 import { Composer } from "./components/Composer";
 import { Message } from "./components/Message";
@@ -8,6 +8,31 @@ import { KeyModal } from "./components/KeyModal";
 export default function App() {
   const { apiKey, turns, newChat, resetAll, storageWarning, exportProfileJson, importProfileJson } = useExpert();
   const fileRef = useRef<HTMLInputElement>(null);
+  const sideRef = useRef<HTMLDivElement>(null);
+  const [sideW, setSideW] = useState<number>(() => {
+    const v = parseInt(localStorage.getItem("expert_sideW") || "290", 10);
+    return isNaN(v) ? 290 : v;
+  });
+
+  // drag the border to resize the panel
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = sideRef.current?.getBoundingClientRect().width ?? sideW;
+    const move = (ev: MouseEvent) => {
+      const w = Math.max(220, Math.min(560, startW + (startX - ev.clientX)));
+      setSideW(w);
+    };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      document.body.style.userSelect = "";
+      setSideW((w) => { localStorage.setItem("expert_sideW", String(w)); return w; });
+    };
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+  }
 
   function doExport() {
     const blob = new Blob([exportProfileJson()], { type: "application/json" });
@@ -66,7 +91,8 @@ export default function App() {
           </div>
           <Composer />
         </div>
-        <SidePanel />
+        <div className="resizer" onMouseDown={startResize} />
+        <div ref={sideRef} style={{ width: sideW, flex: "0 0 auto" }}><SidePanel /></div>
       </div>
       <KeyModal />
     </>

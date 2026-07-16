@@ -136,3 +136,13 @@ body {
 .tpllist .tpl:hover { border-color:var(--accent); color:var(--paper); }
 .tplx { color:var(--muted); font-size:13px; line-height:1; }
 .tplx:hover { color:var(--opus); }
+
+/* --- parity: resizer, note links, flash --- */
+.resizer { width:6px; cursor:col-resize; background:transparent; flex:0 0 auto;
+  border-left:1px solid var(--line); transition:background .15s; }
+.resizer:hover { background:var(--accent); }
+.lesson.link { cursor:pointer; }
+.lesson.link:hover { color:var(--paper); }
+@keyframes flashbg { 0% { background:rgba(216,162,74,.25); } 100% { background:transparent; } }
+.flash { animation:flashbg 1.6s ease-out; border-radius:8px; }
+@media(max-width:820px){ .resizer{ display:none; } }

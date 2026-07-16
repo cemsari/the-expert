@@ -4,14 +4,14 @@ import { AnyTier, Effort } from "../brain/models";
 import { Profile, emptyProfile, decide, recordRating } from "../brain/learner";
 import { savingsForTurn, quip } from "../brain/savings";
 import { topicOf } from "../brain/router";
-import { streamAnthropic, friendlyError, ChatMessage } from "../api/anthropic";
+import { streamAnthropic, classifyWithHaiku, friendlyError, ChatMessage } from "../api/anthropic";
 import { exportProfile, importProfile, describeProfile } from "../brain/profileIO";
 import { Template, pushHistory, starterTemplates, addTemplate, removeTemplate, makeTemplate } from "../brain/prompts";
 import { loadLS, saveLS, removeLS } from "./storage";
 
 let abortRef: AbortController | null = null;
 
-const LS = { key: "expert_key", profile: "expert_profile", ledger: "expert_ledger", history: "expert_history", prompts: "expert_prompts", templates: "expert_templates" };
+const LS = { key: "expert_key", profile: "expert_profile", ledger: "expert_ledger", history: "expert_history", prompts: "expert_prompts", templates: "expert_templates", budget: "expert_budget" };
 
 export interface LedgerRow {
   prompt: string; bucket: string; tier: AnyTier; effort: Effort;
@@ -31,6 +31,7 @@ interface ExpertState {
   history: ChatMessage[];
   promptHistory: string[];
   templates: Template[];
+  budget: { start: number; spendAtSet: number; ts: number } | null;
   storageWarning: boolean;
 
   setKey: (k: string) => void;
@@ -41,6 +42,7 @@ interface ExpertState {
   resetAll: () => void;
   stop: () => void;
   saveTemplate: (name: string, body: string) => void;
+  setBudget: (start: number) => void;
   deleteTemplate: (id: string) => void;
   exportProfileJson: () => string;
   importProfileJson: (json: string) => { ok: boolean; error?: string; summary?: string };
@@ -54,6 +56,7 @@ export const useExpert = create<ExpertState>((set, get) => ({
   history: loadLS<ChatMessage[]>(LS.history, []),
   promptHistory: loadLS<string[]>(LS.prompts, []),
   templates: loadLS<Template[]>(LS.templates, starterTemplates()),
+  budget: loadLS<{ start: number; spendAtSet: number; ts: number } | null>(LS.budget, null),
   storageWarning: false,
 
   setKey: (k) => { localStorage.setItem(LS.key, k); set({ apiKey: k }); },
@@ -64,6 +67,11 @@ export const useExpert = create<ExpertState>((set, get) => ({
     if (!apiKey) return;
 
     let { d, bucket } = decide(prompt, profile);
+    // Ambiguous + no override -> ask Haiku for a second opinion (fail-open).
+    if (!override && d.src === "heuristic" && d.conf < 0.6) {
+      const hk = await classifyWithHaiku(apiKey, prompt);
+      if (hk) d = { ...d, tier: hk.tier, effort: hk.effort, conf: 0.8, src: "haiku", reason: "classifier call" };
+    }
     if (override) d = { ...d, tier: override.tier, effort: override.effort, src: "override", reason: "you chose it" };
 
     const ph = pushHistory(get().promptHistory, prompt);
@@ -130,6 +138,13 @@ export const useExpert = create<ExpertState>((set, get) => ({
   },
 
   stop: () => { abortRef?.abort(); abortRef = null; },
+
+  setBudget: (start) => {
+    const spendAtSet = get().ledger.reduce((a, r) => a + (r.cost || 0), 0);
+    const b = { start, spendAtSet, ts: Date.now() };
+    saveLS(LS.budget, b, () => set({ storageWarning: true }));
+    set({ budget: b });
+  },
 
   saveTemplate: (name, body) => {
     const list = addTemplate(get().templates, makeTemplate(name, body));

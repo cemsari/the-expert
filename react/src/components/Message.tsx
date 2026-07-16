@@ -36,7 +36,7 @@ export function Message({ turn }: { turn: Turn }) {
   return (
     <>
       <div className="msg you">{turn.prompt}</div>
-      <div className="msg exp">
+      <div className="msg exp" id={turn.id}>
         <div className="who">
           <span className={"pill " + tierBase} title={modelName(turn.tier)}>{modelShort(turn.tier)}</span>
           <span>effort {turn.effort} · {turn.src}</span>
