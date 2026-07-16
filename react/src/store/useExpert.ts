@@ -4,8 +4,11 @@ import { AnyTier, Effort } from "../brain/models";
 import { Profile, emptyProfile, decide, recordRating } from "../brain/learner";
 import { savingsForTurn, quip } from "../brain/savings";
 import { topicOf } from "../brain/router";
-import { callAnthropic, friendlyError, ChatMessage } from "../api/anthropic";
+import { streamAnthropic, friendlyError, ChatMessage } from "../api/anthropic";
+import { exportProfile, importProfile, describeProfile } from "../brain/profileIO";
 import { loadLS, saveLS, removeLS } from "./storage";
+
+let abortRef: AbortController | null = null;
 
 const LS = { key: "expert_key", profile: "expert_profile", ledger: "expert_ledger", history: "expert_history" };
 
@@ -16,7 +19,7 @@ export interface LedgerRow {
 export interface Turn {
   id: string; prompt: string; tier: AnyTier; effort: Effort;
   reason: string; src: string; answer: string; quip?: string;
-  askedBack?: boolean; error?: string; pending?: boolean;
+  askedBack?: boolean; error?: string; pending?: boolean; streaming?: boolean;
 }
 
 interface ExpertState {
@@ -33,6 +36,9 @@ interface ExpertState {
   rate: (turnId: string, score: number, comment: string) => void;
   newChat: () => void;
   resetAll: () => void;
+  stop: () => void;
+  exportProfileJson: () => string;
+  importProfileJson: (json: string) => { ok: boolean; error?: string; summary?: string };
 }
 
 export const useExpert = create<ExpertState>((set, get) => ({
@@ -57,8 +63,20 @@ export const useExpert = create<ExpertState>((set, get) => ({
     const turn: Turn = { id, prompt, tier: d.tier, effort: d.effort, reason: d.reason, src: d.src, answer: "", pending: true };
     set((s) => ({ turns: [...s.turns, turn] }));
 
+    const ctrl = new AbortController();
+    abortRef = ctrl;
     try {
-      const res = await callAnthropic(apiKey, d.tier, d.effort, history, prompt);
+      const res = await streamAnthropic(
+        apiKey, d.tier, d.effort, history, prompt,
+        (chunk) => {
+          set((s) => ({
+            turns: s.turns.map((t) => t.id === id
+              ? { ...t, answer: t.answer + chunk, pending: false, streaming: true }
+              : t),
+          }));
+        },
+        ctrl.signal
+      );
       const { cost, baseline, saved } = savingsForTurn({ tier: d.tier, tokensIn: res.tokensIn, tokensOut: res.tokensOut });
       const prevTotal = get().ledger.reduce((a, r) => a + (r.saved || 0), 0);
       const row: LedgerRow = { prompt, bucket, tier: d.tier, effort: d.effort, cost, baseline, saved, rating: null, ts: Date.now() };
@@ -73,12 +91,14 @@ export const useExpert = create<ExpertState>((set, get) => ({
         ledger: ok1 ? [...s.ledger, row] : s.ledger,
         history: newHistory,
         turns: s.turns.map((t) => t.id === id
-          ? { ...t, answer: res.text, quip: q, askedBack, pending: false }
+          ? { ...t, answer: res.text, quip: q, askedBack, pending: false, streaming: false }
           : t),
       }));
     } catch (e) {
       const msg = friendlyError(e as Error);
-      set((s) => ({ turns: s.turns.map((t) => t.id === id ? { ...t, error: msg, pending: false } : t) }));
+      set((s) => ({ turns: s.turns.map((t) => t.id === id ? { ...t, error: msg, pending: false, streaming: false } : t) }));
+    } finally {
+      abortRef = null;
     }
   },
 
@@ -96,6 +116,18 @@ export const useExpert = create<ExpertState>((set, get) => ({
     saveLS(LS.profile, profile, () => set({ storageWarning: true }));
     saveLS(LS.ledger, ledger, () => set({ storageWarning: true }));
     set({ profile: { ...profile }, ledger });
+  },
+
+  stop: () => { abortRef?.abort(); abortRef = null; },
+
+  exportProfileJson: () => exportProfile(get().profile),
+
+  importProfileJson: (json) => {
+    const res = importProfile(json);
+    if (!res.ok || !res.profile) return { ok: false, error: res.error };
+    saveLS(LS.profile, res.profile, () => set({ storageWarning: true }));
+    set({ profile: res.profile });
+    return { ok: true, summary: describeProfile(res.profile) };
   },
 
   newChat: () => { removeLS(LS.history); set({ history: [], turns: [] }); },

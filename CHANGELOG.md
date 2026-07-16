@@ -7,7 +7,29 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — React edition, Phase 2 (`react/`)
+
+The features that make the React edition worth cutting over to. **49 tests passing** (up from 27).
+
+- **Streaming responses** — answers now appear token-by-token via Server-Sent
+  Events, with a live cursor and a **stop** control (or press `Esc`). The SSE
+  parser is a pure, tested function; the client falls back to a non-streaming
+  request if streaming is unavailable.
+- **Profile export / import** — download everything The Expert has learned about
+  you as a JSON file and load it in another browser. Import is deliberately
+  strict: it validates format and version and refuses foreign or corrupt files
+  rather than silently overwriting your learning, and it reports what it found
+  ("3 question types learned · 1 standing rule · 5 notes").
+- **"Why this model?" panel** — expand any answer to see the full reasoning:
+  which trigger words fired, message length, scope signals, the classifier's
+  verdict and confidence, what your learning changed and why, and the cost
+  consequence. Experiments explain themselves honestly, including the promise
+  to revert if ratings don't improve.
+- **Keyboard shortcuts** — `⌘K` new chat, `⌘/` focus the composer, `Esc` stop
+  a streaming response.
+
 ### Added — React edition, Phase 1 (`react/`)
+
 
 The parity foundation for the eventual v2.0.0. **No user-facing changes** —
 this is the maintainable, tested architecture that Phase 2 builds on.
@@ -41,9 +63,8 @@ tier-type mismatch.
 ### Notes
 - The single-file `web/index.html` remains the canonical app until the React
   edition reaches full parity — see `REACT_SCOPE.md`.
-- Planned for Phase 2 (which will become **v2.0.0**): streaming responses,
-  profile export/import, a "why this model?" transparency panel, keyboard
-  shortcuts, prompt templates.
+- Phase 2 is complete. Remaining before **v2.0.0**: prompt history/templates,
+  and a final parity review against `web/index.html` before cutover.
 
 ---
 

@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { Turn, useExpert } from "../store/useExpert";
+import { explainDecision } from "../brain/explain";
+import { decide } from "../brain/learner";
 import { MODELS, modelName, modelShort } from "../brain/models";
 import { renderMd, tablesToCsv } from "./md";
 
 export function Message({ turn }: { turn: Turn }) {
   const rate = useExpert((s) => s.rate);
+  const profile = useExpert((s) => s.profile);
+  const stop = useExpert((s) => s.stop);
+  const [showWhy, setShowWhy] = useState(false);
   const [rated, setRated] = useState(false);
   const [stars, setStars] = useState(0);
   const [comment, setComment] = useState("");
@@ -42,8 +47,33 @@ export function Message({ turn }: { turn: Turn }) {
         <div className="answer">
           {turn.pending ? <><span className="spin" /> thinking…</>
             : turn.error ? <span style={{ color: "var(--opus)" }}>{turn.error}</span>
-            : <span dangerouslySetInnerHTML={{ __html: renderMd(turn.answer) }} />}
+            : <>
+                <span dangerouslySetInnerHTML={{ __html: renderMd(turn.answer) }} />
+                {turn.streaming && <span className="cursor" />}
+              </>}
         </div>
+
+        {turn.streaming && (
+          <div><span className="redo" onClick={stop}>■ stop</span></div>
+        )}
+
+        {!turn.pending && !turn.error && (
+          <div>
+            <span className="redo" onClick={() => setShowWhy((v) => !v)}>
+              {showWhy ? "▾ hide reasoning" : "▸ why this model?"}
+            </span>
+            {showWhy && (
+              <div className="whybox">
+                {explainDecision(turn.prompt,
+                  { tier: turn.tier, effort: turn.effort, conf: 0, reason: turn.reason, src: turn.src as any },
+                  profile, decide(turn.prompt, profile).bucket
+                ).map((l, i) => (
+                  <div className="whyline" key={i}><span className="whyicon">{l.icon}</span>{l.text}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {!turn.pending && !turn.error && tablesToCsv(turn.answer) && (
           <div><span className="redo" onClick={downloadCsv}>⬇ Download CSV — opens in Excel</span></div>
