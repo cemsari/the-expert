@@ -126,3 +126,13 @@ body {
   align-items:flex-start; line-height:1.45; }
 .whyline + .whyline { border-top:1px solid var(--line); }
 .whyicon { flex:0 0 auto; }
+
+/* --- Phase 2: prompt templates --- */
+.tplbar { display:flex; align-items:center; margin-top:8px; font-family:var(--mono); font-size:11px; }
+.tpllist { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+.tpllist .tpl { display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+  font-size:11px; padding:4px 10px; border:1px solid var(--line); border-radius:20px;
+  cursor:pointer; color:var(--soft); }
+.tpllist .tpl:hover { border-color:var(--accent); color:var(--paper); }
+.tplx { color:var(--muted); font-size:13px; line-height:1; }
+.tplx:hover { color:var(--opus); }

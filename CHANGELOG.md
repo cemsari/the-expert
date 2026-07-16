@@ -9,7 +9,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added — React edition, Phase 2 (`react/`)
 
-The features that make the React edition worth cutting over to. **49 tests passing** (up from 27).
+The features that make the React edition worth cutting over to. **61 tests passing** (up from 27).
 
 - **Streaming responses** — answers now appear token-by-token via Server-Sent
   Events, with a live cursor and a **stop** control (or press `Esc`). The SSE
@@ -27,6 +27,11 @@ The features that make the React edition worth cutting over to. **49 tests passi
   to revert if ratings don't improve.
 - **Keyboard shortcuts** — `⌘K` new chat, `⌘/` focus the composer, `Esc` stop
   a streaming response.
+- **Prompt history & templates** — press `↑` in an empty composer to recall past
+  prompts (de-duplicated, newest first, capped at 50). Save any prompt as a
+  reusable template; templates support `{placeholders}` that prompt for values
+  when used, and unfilled ones stay visible rather than being silently blanked.
+  Ships with four useful starters so the feature isn't an empty box.
 
 ### Added — React edition, Phase 1 (`react/`)
 
@@ -63,8 +68,8 @@ tier-type mismatch.
 ### Notes
 - The single-file `web/index.html` remains the canonical app until the React
   edition reaches full parity — see `REACT_SCOPE.md`.
-- Phase 2 is complete. Remaining before **v2.0.0**: prompt history/templates,
-  and a final parity review against `web/index.html` before cutover.
+- Phase 2 is complete. Remaining before **v2.0.0**: a final parity review
+  against `web/index.html`, then cutover.
 
 ---
 

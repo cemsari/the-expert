@@ -6,11 +6,12 @@ import { savingsForTurn, quip } from "../brain/savings";
 import { topicOf } from "../brain/router";
 import { streamAnthropic, friendlyError, ChatMessage } from "../api/anthropic";
 import { exportProfile, importProfile, describeProfile } from "../brain/profileIO";
+import { Template, pushHistory, starterTemplates, addTemplate, removeTemplate, makeTemplate } from "../brain/prompts";
 import { loadLS, saveLS, removeLS } from "./storage";
 
 let abortRef: AbortController | null = null;
 
-const LS = { key: "expert_key", profile: "expert_profile", ledger: "expert_ledger", history: "expert_history" };
+const LS = { key: "expert_key", profile: "expert_profile", ledger: "expert_ledger", history: "expert_history", prompts: "expert_prompts", templates: "expert_templates" };
 
 export interface LedgerRow {
   prompt: string; bucket: string; tier: AnyTier; effort: Effort;
@@ -28,6 +29,8 @@ interface ExpertState {
   ledger: LedgerRow[];
   turns: Turn[];
   history: ChatMessage[];
+  promptHistory: string[];
+  templates: Template[];
   storageWarning: boolean;
 
   setKey: (k: string) => void;
@@ -37,6 +40,8 @@ interface ExpertState {
   newChat: () => void;
   resetAll: () => void;
   stop: () => void;
+  saveTemplate: (name: string, body: string) => void;
+  deleteTemplate: (id: string) => void;
   exportProfileJson: () => string;
   importProfileJson: (json: string) => { ok: boolean; error?: string; summary?: string };
 }
@@ -47,6 +52,8 @@ export const useExpert = create<ExpertState>((set, get) => ({
   ledger: loadLS<LedgerRow[]>(LS.ledger, []),
   turns: [],
   history: loadLS<ChatMessage[]>(LS.history, []),
+  promptHistory: loadLS<string[]>(LS.prompts, []),
+  templates: loadLS<Template[]>(LS.templates, starterTemplates()),
   storageWarning: false,
 
   setKey: (k) => { localStorage.setItem(LS.key, k); set({ apiKey: k }); },
@@ -58,6 +65,10 @@ export const useExpert = create<ExpertState>((set, get) => ({
 
     let { d, bucket } = decide(prompt, profile);
     if (override) d = { ...d, tier: override.tier, effort: override.effort, src: "override", reason: "you chose it" };
+
+    const ph = pushHistory(get().promptHistory, prompt);
+    saveLS(LS.prompts, ph, () => set({ storageWarning: true }));
+    set({ promptHistory: ph });
 
     const id = "t" + Date.now();
     const turn: Turn = { id, prompt, tier: d.tier, effort: d.effort, reason: d.reason, src: d.src, answer: "", pending: true };
@@ -120,6 +131,18 @@ export const useExpert = create<ExpertState>((set, get) => ({
 
   stop: () => { abortRef?.abort(); abortRef = null; },
 
+  saveTemplate: (name, body) => {
+    const list = addTemplate(get().templates, makeTemplate(name, body));
+    saveLS(LS.templates, list, () => set({ storageWarning: true }));
+    set({ templates: list });
+  },
+
+  deleteTemplate: (id) => {
+    const list = removeTemplate(get().templates, id);
+    saveLS(LS.templates, list, () => set({ storageWarning: true }));
+    set({ templates: list });
+  },
+
   exportProfileJson: () => exportProfile(get().profile),
 
   importProfileJson: (json) => {
@@ -133,8 +156,8 @@ export const useExpert = create<ExpertState>((set, get) => ({
   newChat: () => { removeLS(LS.history); set({ history: [], turns: [] }); },
 
   resetAll: () => {
-    removeLS(LS.profile); removeLS(LS.ledger); removeLS(LS.history);
-    set({ profile: emptyProfile(), ledger: [], turns: [], history: [] });
+    removeLS(LS.profile); removeLS(LS.ledger); removeLS(LS.history); removeLS(LS.prompts);
+    set({ profile: emptyProfile(), ledger: [], turns: [], history: [], promptHistory: [] });
   },
 }));
 

@@ -3,12 +3,32 @@ import { decide } from "../brain/learner";
 import { fableWorthy } from "../brain/router";
 import { CORE_TIERS, DEFAULT_EFFORT, MODELS, modelShort, modelName, AnyTier, Effort } from "../brain/models";
 import { useExpert } from "../store/useExpert";
+import { historyStep, placeholders, fillTemplate } from "../brain/prompts";
 
 export function Composer() {
-  const { profile, apiKey, send } = useExpert();
+  const { profile, apiKey, send, promptHistory, templates, saveTemplate, deleteTemplate } = useExpert();
   const [text, setText] = useState("");
   const [override, setOverride] = useState<{ tier?: AnyTier; effort?: Effort; effortExplicit?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [histIdx, setHistIdx] = useState(-1);
+  const [showTpl, setShowTpl] = useState(false);
+
+  function recall(dir: "up" | "down") {
+    const i = historyStep(promptHistory.length, histIdx, dir);
+    setHistIdx(i);
+    setText(i === -1 ? "" : promptHistory[i]);
+  }
+
+  function useTemplate(body: string) {
+    let filled = body;
+    for (const name of placeholders(body)) {
+      const v = window.prompt(`${name}?`);
+      if (v == null) return;              // cancelled — don't paste a half-filled template
+      filled = fillTemplate(filled, { [name]: v });
+    }
+    setText(filled);
+    setShowTpl(false);
+  }
 
   const trimmed = text.trim();
   const preview = trimmed ? decide(trimmed, profile).d : null;
@@ -20,7 +40,7 @@ export function Composer() {
     if (!apiKey) { useExpert.setState({}); document.dispatchEvent(new CustomEvent("open-key")); return; }
     setBusy(true);
     const ov = override ? { tier: effTier, effort: effEffort } : null;
-    setText(""); setOverride(null);
+    setText(""); setOverride(null); setHistIdx(-1);
     await send(trimmed, ov);
     setBusy(false);
   }
@@ -51,10 +71,44 @@ export function Composer() {
           placeholder="Ask anything. I'll weigh it as you type…"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); } }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doSend(); return; }
+            // Up/Down recall past prompts — only when the box is empty or already recalling,
+            // so it never fights normal editing.
+            if (e.key === "ArrowUp" && (text === "" || histIdx > -1)) { e.preventDefault(); recall("up"); }
+            if (e.key === "ArrowDown" && histIdx > -1) { e.preventDefault(); recall("down"); }
+          }}
         />
         <button className="send" disabled={busy} onClick={doSend}>Send</button>
       </div>
+      <div className="tplbar">
+        <span className="redo" onClick={() => setShowTpl((v) => !v)}>
+          {showTpl ? "▾ templates" : "▸ templates"}
+        </span>
+        {trimmed && (
+          <span className="redo" style={{ marginLeft: 12 }}
+            onClick={() => { const n = window.prompt("Name this template:"); if (n) saveTemplate(n, trimmed); }}>
+            + save this as a template
+          </span>
+        )}
+        {promptHistory.length > 0 && (
+          <span style={{ marginLeft: 12, color: "var(--muted)", fontSize: 11 }}>
+            ↑ recall past prompts
+          </span>
+        )}
+      </div>
+      {showTpl && (
+        <div className="tpllist">
+          {templates.length === 0 && <span className="empty">No templates yet — write a prompt and save it.</span>}
+          {templates.map((t) => (
+            <span key={t.id} className="opt tpl" onClick={() => useTemplate(t.body)} title={t.body}>
+              {t.name}
+              <span className="tplx" title="Delete"
+                onClick={(e) => { e.stopPropagation(); if (confirm(`Delete template “${t.name}”?`)) deleteTemplate(t.id); }}>×</span>
+            </span>
+          ))}
+        </div>
+      )}
       {trimmed && (
         <div className="override">
           <span>model:</span>
