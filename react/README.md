@@ -1,7 +1,19 @@
-# The Expert — React edition (v2.0, in progress)
+# The Expert — React edition (v2.0)
 
-The Phase 1 rewrite of the web edition into a maintainable, tested React app.
-See `../REACT_SCOPE.md` for the full plan.
+The full app: a reference implementation of the routing brain, and the nicest
+way to *see* it work.
+
+**What this is:** a bring-your-own-key chat app that shows you which model it
+picked and why, learns from your ratings, and tracks what routing saved you.
+
+**What this is not:** a Claude.ai competitor. It calls the plain Anthropic API,
+so it has **no web search, no file uploads, no artifacts** — for those, use
+[claude.ai](https://claude.ai), which is better at chat and included in a
+subscription. This app exists to demonstrate and use the *router*.
+
+**If you're building an app rather than chatting,** you probably want
+[`@the-expert/router`](../packages/router) instead — the same brain as a
+zero-dependency library.
 
 ## Status: Phase 1 complete (parity foundation)
 

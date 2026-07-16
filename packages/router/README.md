@@ -18,6 +18,64 @@ npm install @the-expert/router
 
 ---
 
+## Who this is for
+
+**✅ You call the Claude API from your own code** — a chatbot, an agent, a
+support tool, a pipeline — and every request currently hardcodes one model.
+
+**✅ Your token bill is growing** and you suspect much of it is over-powered
+answers to under-powered questions, but you have no way to prove it.
+
+**✅ You want routing you can inspect and defend** — not a black box that
+silently picks for you.
+
+## Who this is *not* for
+
+**❌ You just want to chat with Claude.** Use [claude.ai](https://claude.ai) —
+it's better at that and it's included in a subscription. This library doesn't
+help you.
+
+**❌ You want a proxy or a hosted service.** This is a local decision function.
+It makes no network calls, holds no keys, and never sees your traffic. You call
+Claude; it just tells you *which* Claude.
+
+**❌ You need routing across providers** (OpenAI, Gemini, local models). This is
+Claude-specific by design — it knows Claude's tiers, prices and effort model.
+For cross-provider routing, look at OpenRouter or LiteLLM.
+
+---
+
+## Why this and not something else
+
+Honest positioning, because you'll ask anyway:
+
+**vs. hardcoding one model** — the status quo in most codebases. You're paying
+Opus rates for "summarise this line." Routing is the only optimisation that cuts
+cost *without* cutting quality, because it only ever down-shifts on questions
+that don't need the power.
+
+**vs. writing your own if/else** — you can, and for ten prompt types you
+probably should. This becomes worth it when you want the parts that are tedious
+to build: a learning loop that adapts to *your users'* ratings, experiments that
+justify their own cost before adopting a pricier model, honest savings
+accounting against a real baseline, and an explanation of every decision.
+
+**vs. OpenRouter / LiteLLM** — those are *gateways*: they proxy your traffic and
+route across providers. Different job, different trust model. This is a
+**local decision function** — zero dependencies, no network, no proxy, your keys
+never leave your process. Use them together if you like: ask The Expert *which*
+Claude, then send it wherever you send it.
+
+**vs. "just use the cheap model"** — fine until a hard question lands on it. The
+point isn't cheapness; it's *fit*.
+
+**The honest catch:** routing is a heuristic. It reads keywords, length and
+scope — it does not understand your prompt semantically. It will misroute
+sometimes. That's precisely why ratings, experiments and manual overrides exist,
+and why every decision is explainable rather than asserted.
+
+---
+
 ## 60-second start
 
 ```ts

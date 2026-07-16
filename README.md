@@ -1,25 +1,98 @@
 # 🦥 The Expert — a model & effort router for Claude
 
-The Expert reads each message *before* it's sent, picks the right Claude model
-and effort level for the job, tracks how much you save versus always using the
-most expensive model, and **learns from your ratings** which model you actually
-prefer for each kind of question. Easy questions stay cheap; hard ones get the
-big brain.
+**Most apps send every message to the same Claude model.** A "what's 2+2" costs
+the same as "redesign my architecture." The price gap between tiers is 5–25×,
+and most questions don't need the expensive one.
 
-It comes in two editions that share the same routing brain:
+The Expert reads each message *before* it's sent, picks the right-sized model
+and effort level, learns from your ratings which model you actually prefer for
+each kind of question, and keeps honest books on what routing saved you versus
+always using the top model.
 
-| | 🌐 Web edition | 🖥️ Terminal edition |
-|---|---|---|
-| **How to run** | Open `web/index.html` in a browser | Run the Python app in a terminal |
-| **Billing** | Your own Anthropic API key (BYOK) | Your Claude subscription (via Claude Code sign-in) |
-| **Live suggestion as you type** | ✅ | — |
-| **Renders tables, CSV export** | ✅ | — |
-| **Learning, ratings, savings** | ✅ | ✅ |
-| **Runs fully offline of any server** | ✅ (in your browser) | ✅ (on your machine) |
+Its governing rule: **never overspend on faith.** If it wants to try a pricier
+model, it must *prove* — from your own ratings — that answers actually improved.
+If they don't, it reverts.
 
 ---
 
-## 🌐 Web edition (bring your own key)
+## 👤 Who this is for
+
+**✅ You're building an application on the Claude API.**
+This is the primary audience. You pay per token, at volume, and you have no
+routing today. Use the library — [`@the-expert/router`](packages/router) — to
+route your app's calls and cut spend without cutting quality.
+
+**✅ You want to see the machinery.**
+The "why this model?" panel, the savings ledger, the experiment loop. Most tools
+hide their routing; this one shows its working.
+
+**✅ You have an API cost problem and no visibility.**
+If you don't know how much of your AI spend goes to over-powered answers on
+under-powered questions, the ledger answers that in real money.
+
+## 🚫 Who this is *not* for
+
+**❌ You want a better Claude chat app.** Use [Claude](https://claude.ai)
+instead — genuinely. It has web search, file uploads, artifacts, and it's
+included in a subscription. The chat editions here are **reference
+implementations of the router**, not a Claude competitor. They will lose that
+comparison and they're not trying to win it.
+
+**❌ You need live/current information.** The web and React editions call the
+plain Anthropic API, which has **no web access** — the model answers from
+training data and will honestly say so. (The terminal edition *does* have web
+search, via the Claude Agent SDK.) Live data is not what this project is about.
+
+**❌ You want free chat.** Bring-your-own-key means you pay per message. If
+you're on a Claude subscription, chatting there costs you nothing extra.
+
+---
+
+## 📦 What's in this repo
+
+| | What it is | Who it's for |
+|---|---|---|
+| **[`packages/router`](packages/router)** | `@the-expert/router` — the routing brain as a zero-dependency npm library | **Developers building on the Claude API.** The main event. |
+| **[`react/`](react)** | The full app: React + Vite + TypeScript, streaming, profile export, transparency panel | Anyone who wants to *use* the router directly, or see it demonstrated |
+| **[`web/`](web)** | The same app as one self-contained HTML file — no build step | Try it with zero install; open the file |
+| **[`terminal/`](terminal)** | Python CLI. Runs on your **Claude subscription** (no API key) and **has web search** | Developers who want routing + research, free on an existing plan |
+
+All four share the same routing brain and learning model.
+
+---
+
+## 📦 Use it as a library (recommended)
+
+```bash
+npm install @the-expert/router
+```
+
+```ts
+import { Expert } from "@the-expert/router";
+const expert = new Expert();
+
+const r = expert.route("what is a closure in javascript");
+// -> { tier: "sonnet", model: "claude-sonnet-5", effort: "medium", reason: "standard task" }
+
+// ...call Claude with r.model, then:
+expert.record(r.id, res.usage.input_tokens, res.usage.output_tokens);
+expert.rate(r.id, 5, "perfect, keep using sonnet here");
+expert.savings();  // -> { saved: 0.0140, percent: 80, turns: 1 }
+```
+
+Full API docs: [`packages/router/README.md`](packages/router/README.md).
+
+## ⚛️ React edition (the full app)
+
+```bash
+cd react && npm install && npm run dev
+```
+
+Streaming responses, live routing gauge, profile export/import, "why this
+model?" transparency, prompt templates. Bring your own Anthropic key — it's
+stored only in your browser and sent only to Anthropic.
+
+## 🌐 Single-file edition (zero install)
 
 A single self-contained HTML file. Nothing to install.
 
