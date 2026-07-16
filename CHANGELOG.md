@@ -5,7 +5,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased] — v2.0.0 candidate
+## [Unreleased]
+
+### Added — `@the-expert/router` npm package (`packages/router/`)
+
+The routing brain, extracted as a standalone, dependency-free library. This is
+the answer to "who is this for?": not Claude chat users (Claude Home already
+serves them better), but **anyone building an application on the Claude API**,
+where the model choice is actually made in code and no routing exists today.
+
+- **`Expert` class** — `route()` → `record()` → `rate()` → `savings()`.
+  Returns a concrete Anthropic model id, ready to pass straight to the SDK.
+- **Explains itself** — `explain(prompt)` returns the full reasoning as plain
+  English lines.
+- **Portable profiles** — `export()` / `import()` with strict validation.
+- **No storage opinion** — persist `profile` and `ledger` wherever you like.
+- Dual ESM/CJS build with TypeScript declarations; zero runtime dependencies.
+- **53 tests**, including 10 for the public API. Verified by consuming the
+  *built* package via both `import` and `require` — which caught a real
+  packaging bug (extension-less ESM imports) that a green build alone missed.
+
+## [2.0.0] — 2026-07-15
 
 ### Parity achieved
 A feature-by-feature audit against the canonical `web/index.html` found five

@@ -1,0 +1,50 @@
+{
+  "name": "@the-expert/router",
+  "version": "1.0.0",
+  "description": "Pick the right Claude model and effort for each message. Learns from your ratings, proves what it saved.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "claude",
+    "anthropic",
+    "llm",
+    "ai",
+    "router",
+    "model-router",
+    "cost-optimization",
+    "llm-ops",
+    "llm-router"
+  ],
+  "author": "Cem Sari",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cemsari/the-expert.git",
+    "directory": "packages/router"
+  },
+  "homepage": "https://github.com/cemsari/the-expert#readme",
+  "sideEffects": false,
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
