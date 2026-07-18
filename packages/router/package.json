@@ -1,7 +1,7 @@
 {
-  "name": "the-expert-router",
-  "version": "1.0.1",
-  "description": "Routes each Claude API call to the right-sized model, learns from your ratings, and proves what it saved. For developers who pay per token — not a chat app.",
+  "name": "@the-expert/router",
+  "version": "1.0.0",
+  "description": "Routes each Claude API call to the right-sized model, learns from your ratings, and proves what it saved. For developers who pay per token \u2014 not a chat app.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -37,7 +37,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cemsari/the-expert.git",
+    "url": "https://github.com/cemsari/the-expert.git",
     "directory": "packages/router"
   },
   "homepage": "https://github.com/cemsari/the-expert#readme",
