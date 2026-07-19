@@ -19,7 +19,7 @@ If they don't, it reverts.
 
 **✅ You're building an application on the Claude API.**
 This is the primary audience. You pay per token, at volume, and you have no
-routing today. Use the library — [`@the-expert/router`](packages/router) — to
+routing today. Use the library — [`the-expert-router`](packages/router) — to
 route your app's calls and cut spend without cutting quality.
 
 **✅ You want to see the machinery.**
@@ -52,7 +52,7 @@ you're on a Claude subscription, chatting there costs you nothing extra.
 
 | | What it is | Who it's for |
 |---|---|---|
-| **[`packages/router`](packages/router)** | `@the-expert/router` — the routing brain as a zero-dependency npm library | **Developers building on the Claude API.** The main event. |
+| **[`packages/router`](packages/router)** | `the-expert-router` — the routing brain as a zero-dependency npm library | **Developers building on the Claude API.** The main event. |
 | **[`react/`](react)** | The full app: React + Vite + TypeScript, streaming, profile export, transparency panel | Anyone who wants to *use* the router directly, or see it demonstrated |
 | **[`web/`](web)** | The same app as one self-contained HTML file — no build step | Try it with zero install; open the file |
 | **[`terminal/`](terminal)** | Python CLI. Runs on your **Claude subscription** (no API key) and **has web search** | Developers who want routing + research, free on an existing plan |
@@ -64,11 +64,11 @@ All four share the same routing brain and learning model.
 ## 📦 Use it as a library (recommended)
 
 ```bash
-npm install @the-expert/router
+npm install the-expert-router
 ```
 
 ```ts
-import { Expert } from "@the-expert/router";
+import { Expert } from "the-expert-router";
 const expert = new Expert();
 
 const r = expert.route("what is a closure in javascript");

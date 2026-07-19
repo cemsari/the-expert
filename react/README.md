@@ -12,7 +12,7 @@ so it has **no web search, no file uploads, no artifacts** — for those, use
 subscription. This app exists to demonstrate and use the *router*.
 
 **If you're building an app rather than chatting,** you probably want
-[`@the-expert/router`](../packages/router) instead — the same brain as a
+[`the-expert-router`](../packages/router) instead — the same brain as a
 zero-dependency library.
 
 ## Status: Phase 1 complete (parity foundation)
