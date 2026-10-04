@@ -87,7 +87,7 @@ const claude = new Anthropic();
 
 // 1. Route the prompt
 const r = expert.route("what is a closure in javascript");
-// -> { tier: "sonnet", effort: "medium", model: "claude-sonnet-5", reason: "standard task", id: "t..." }
+// -> { tier: "sonnet", effort: "medium", model: "claude-sonnet-5", reason: "no strong signal", id: "t..." }
 
 // 2. Call Claude with the chosen model
 const res = await claude.messages.create({
@@ -104,7 +104,8 @@ expert.rate(r.id, 5, "perfect, keep using sonnet here");
 
 // 5. Ask what routing saved you
 expert.savings();
-// -> { saved: 0.0140, spent: 0.0035, percent: 80, turns: 1 }
+// for 1,200 input + 400 output tokens
+// -> { saved: 0.0096, spent: 0.0064, baseline: 0.016, percent: 60, turns: 1 }
 ```
 
 ---

@@ -72,12 +72,13 @@ import { Expert } from "the-expert-router";
 const expert = new Expert();
 
 const r = expert.route("what is a closure in javascript");
-// -> { tier: "sonnet", model: "claude-sonnet-5", effort: "medium", reason: "standard task" }
+// -> { tier: "sonnet", model: "claude-sonnet-5", effort: "medium", reason: "no strong signal" }
 
 // ...call Claude with r.model, then:
 expert.record(r.id, res.usage.input_tokens, res.usage.output_tokens);
 expert.rate(r.id, 5, "perfect, keep using sonnet here");
-expert.savings();  // -> { saved: 0.0140, percent: 80, turns: 1 }
+expert.savings();
+// for 1,200 input + 400 output tokens -> { saved: 0.0096, spent: 0.0064, baseline: 0.016, percent: 60, turns: 1 }
 ```
 
 Full API docs: [`packages/router/README.md`](packages/router/README.md).

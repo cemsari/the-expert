@@ -31,6 +31,12 @@ losing trial, the adopted trial and the standing instruction.
 scoped name `@the-expert/router`, which does not exist on npm. They now say
 `the-expert-router`, the name the package is published under.
 
+### Fixed — README examples
+
+The worked example showed a `reason` and a savings figure the code does not
+produce. It now shows the real output: `reason: "no strong signal"`, and a
+Sonnet answer saving 60% against the Opus baseline (not 80%).
+
 ## [Unreleased]
 
 ### Added — `@the-expert/router` npm package (`packages/router/`)
