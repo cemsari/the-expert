@@ -139,9 +139,17 @@ class Profile:
 
         stats = self.data["buckets"].get(bucket, {})
 
+        # A trial that was closed as "not worth the cost" is out of the running:
+        # its ratings may edge the cheaper model's, but it failed to clear the
+        # +0.5 bar, so the verdict stands until the user says otherwise (a
+        # directive, handled above).
+        closed = self.data["experiments"].get(bucket, {})
+        ruled_out = (closed.get("trial_tier")
+                     if closed.get("status") == "reverted" else None)
+
         # Candidate tiers with enough evidence.
         rated = {t: s for t, s in stats.items()
-                 if t in TIER_ORDER and s["n"] >= MIN_SAMPLES}
+                 if t in TIER_ORDER and s["n"] >= MIN_SAMPLES and t != ruled_out}
 
         if rated:
             def score(t: str) -> tuple[float, float]:
@@ -164,7 +172,7 @@ class Profile:
         own = stats.get(decision.tier)
         if own and own["n"] >= MIN_SAMPLES and own["sat"] / own["n"] < 0.5:
             idx = TIER_ORDER.index(decision.tier)
-            if idx < len(TIER_ORDER) - 1:
+            if idx < len(TIER_ORDER) - 1 and TIER_ORDER[idx + 1] != ruled_out:
                 new = TIER_ORDER[idx + 1]
                 note = (f"personalized: {decision.tier} only pleased you "
                         f"{_fmt(own['sat'])}/{own['n']} times on '{bucket}'-type "

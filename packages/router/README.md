@@ -1,4 +1,4 @@
-# @the-expert/router
+# the-expert-router
 
 **Pick the right Claude model for each message — and prove what you saved.**
 
@@ -13,7 +13,7 @@ what routing saved you versus always using the top model.
 Zero dependencies. Framework-free. Works in Node and the browser.
 
 ```bash
-npm install @the-expert/router
+npm install the-expert-router
 ```
 
 ---
@@ -79,7 +79,7 @@ and why every decision is explainable rather than asserted.
 ## 60-second start
 
 ```ts
-import { Expert } from "@the-expert/router";
+import { Expert } from "the-expert-router";
 import Anthropic from "@anthropic-ai/sdk";
 
 const expert = new Expert();
@@ -182,7 +182,7 @@ const expert = new Expert({ profile: JSON.parse(saved) });
 If you want the parts rather than the class:
 
 ```ts
-import { heuristic, decide, savingsForTurn, explainDecision, MODELS } from "@the-expert/router";
+import { heuristic, decide, savingsForTurn, explainDecision, MODELS } from "the-expert-router";
 ```
 
 `heuristic(prompt)` — pure classification, no learning.

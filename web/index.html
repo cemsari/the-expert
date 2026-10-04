@@ -488,7 +488,10 @@ function decide(prompt){
   }
   const stats=profile.buckets[bucket]||{};
   // 2. best-rated tier
-  const rated=Object.entries(stats).filter(([t,s])=>TIER_ORDER.includes(t)&&s.n>=MIN_SAMPLES);
+  // A trial closed as "not worth the cost" is out of the running until the user says otherwise.
+  const closed=profile.experiments[bucket];
+  const ruledOut=closed&&closed.status==="reverted"?closed.trial:null;
+  const rated=Object.entries(stats).filter(([t,s])=>TIER_ORDER.includes(t)&&s.n>=MIN_SAMPLES&&t!==ruledOut);
   if(rated.length){
     rated.sort((a,b)=>(b[1].sat/b[1].n)-(a[1].sat/a[1].n)||TIER_ORDER.indexOf(a[0])-TIER_ORDER.indexOf(b[0]));
     const[best,bs]=rated[0];

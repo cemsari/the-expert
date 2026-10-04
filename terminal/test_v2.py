@@ -320,6 +320,26 @@ async def run_all():
     check("non-improving experiment concluded 'reverted'",
           pex3.data["experiments"]["haiku"]["status"] == "reverted",
           str(pex3.data["experiments"]["haiku"]))
+    d3b = route_fn("2+2", use_haiku=False)
+    d3b, _n = pex3.adjust(d3b, "haiku")
+    check("after a reverted trial, routing goes back to the cheaper model",
+          d3b.tier == "haiku", f"{d3b.tier}/{d3b.source}")
+
+    # Same, when the trial's ratings edge the cheaper model's but miss +0.5.
+    pex4 = profile_mod.Profile("explorer4")
+    for _ in range(2):
+        pex4.record("sonnet", "sonnet", "medium", 0.5, False)  # 3/5
+    d4 = route_fn("write a function to parse csv", use_haiku=False)
+    d4, _n = pex4.adjust(d4, "sonnet")
+    for sig in (0.5, 0.5, 0.75):                               # 3, 3, 4
+        pex4.record("sonnet", "opus", "high", sig, False)
+    check("3,3,4 against a 3.0 baseline is closed as reverted",
+          pex4.data["experiments"]["sonnet"]["status"] == "reverted",
+          str(pex4.data["experiments"]["sonnet"]))
+    d4b = route_fn("write a function to parse csv", use_haiku=False)
+    d4b, _n = pex4.adjust(d4b, "sonnet")
+    check("a slightly better but reverted trial does not keep the pricier model",
+          d4b.tier == "sonnet", f"{d4b.tier}/{d4b.source}")
 
     print("\n== 3h: clarifying-question reply is sent, not swallowed ==")
     check("real 'let me know' question detected",

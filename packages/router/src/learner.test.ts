@@ -48,6 +48,54 @@ describe("experiments — chase 4+, adopt or revert", () => {
     expect(p.experiments["haiku"].status).toBe("reverted");
   });
 
+  it("after a trial is closed as not worth the cost, routing goes back to the cheaper model", () => {
+    const p = emptyProfile();
+    recordRating(p, "sonnet", "sonnet", "medium", 3, "");
+    recordRating(p, "sonnet", "sonnet", "medium", 3, "");
+    decide("write a function to parse csv", p); // starts experiment -> opus
+    recordRating(p, "sonnet", "opus", "high", 3, "");
+    recordRating(p, "sonnet", "opus", "high", 3, "");
+    const note = recordRating(p, "sonnet", "opus", "high", 4, "");
+    expect(p.experiments["sonnet"].status).toBe("reverted");
+    expect(note).toContain("not worth the cost");
+    const { d } = decide("write a function to parse csv", p);
+    expect(d.tier).toBe("sonnet");
+  });
+
+  it("a reverted trial stays reverted even when the cheaper model has enough ratings to compare", () => {
+    const p = emptyProfile();
+    for (let i = 0; i < 3; i++) recordRating(p, "haiku", "haiku", "low", 3, "");
+    decide("2+2", p); // haiku bucket -> experiment to sonnet
+    recordRating(p, "haiku", "sonnet", "medium", 3, "");
+    recordRating(p, "haiku", "sonnet", "medium", 3, "");
+    recordRating(p, "haiku", "sonnet", "medium", 4, "");
+    expect(p.experiments["haiku"].status).toBe("reverted");
+    const { d } = decide("2+2", p);
+    expect(d.tier).toBe("haiku");
+  });
+
+  it("an adopted trial keeps the stronger model", () => {
+    const p = emptyProfile();
+    for (let i = 0; i < 3; i++) recordRating(p, "sonnet", "sonnet", "medium", 3, "");
+    decide("write a function to parse csv", p);
+    for (let i = 0; i < 3; i++) recordRating(p, "sonnet", "opus", "high", 5, "");
+    const { d } = decide("write a function to parse csv", p);
+    expect(d.tier).toBe("opus");
+  });
+
+  it("a standing instruction still outranks a reverted trial", () => {
+    const p = emptyProfile();
+    recordRating(p, "sonnet", "sonnet", "medium", 3, "");
+    recordRating(p, "sonnet", "sonnet", "medium", 3, "");
+    decide("write a function to parse csv", p);
+    for (let i = 0; i < 3; i++) recordRating(p, "sonnet", "opus", "high", 3, "");
+    expect(p.experiments["sonnet"].status).toBe("reverted");
+    recordRating(p, "sonnet", "sonnet", "medium", 2, "use opus next time");
+    const { d } = decide("write a function to parse csv", p);
+    expect(d.tier).toBe("opus");
+    expect(d.src).toBe("directed");
+  });
+
   it("top-tier opus never experiments (nowhere higher)", () => {
     const p = emptyProfile();
     for (let i = 0; i < 3; i++) recordRating(p, "opus", "opus", "high", 3, "");

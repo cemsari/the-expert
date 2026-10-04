@@ -5,6 +5,32 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [the-expert-router 1.0.2] — 2026-10-04
+
+### Fixed — a trial closed as "not worth the cost" could still win the route
+
+The rule is: a pricier model is kept only if your ratings rise by at least 0.5.
+When a trial missed that bar it was marked `reverted`, but the next call could
+still be routed to the pricier model. The "best-rated tier" step looked only at
+which tier had three or more ratings, and the trial had just earned exactly
+three, so it won on a margin the trial itself had judged too small (for example
+3, 3, 4 against a 3.0 baseline).
+
+A reverted trial's tier is now left out of the best-rated comparison for that
+kind of question, so routing goes back to the cheaper model. A standing
+instruction from the user ("use opus next time") still outranks it.
+
+Fixed in all four editions, which share this logic: `packages/router`,
+`react/`, `web/index.html` and `terminal/learner.py` (where the same exclusion
+also applies to the dissatisfaction escalation step). Tests added for the
+losing trial, the adopted trial and the standing instruction.
+
+### Fixed — package name in `packages/router`
+
+`package.json`, the lockfile and the package README had slipped back to the old
+scoped name `@the-expert/router`, which does not exist on npm. They now say
+`the-expert-router`, the name the package is published under.
+
 ## [Unreleased]
 
 ### Added — `@the-expert/router` npm package (`packages/router/`)

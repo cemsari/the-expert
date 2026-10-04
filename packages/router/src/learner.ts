@@ -45,9 +45,13 @@ export function decide(prompt: string, profile: Profile): { d: Decision; bucket:
 
   const stats = profile.buckets[bucket] || {};
 
-  // 2. best-rated tier
+  // 2. best-rated tier. A trial that was closed as "not worth the cost" is out of
+  // the running: its ratings may edge the cheaper model's, but it failed to clear
+  // the +0.5 bar, so the verdict stands until the user says otherwise (a directive).
+  const closed = profile.experiments[bucket];
+  const ruledOut = closed && closed.status === "reverted" ? closed.trial : null;
   const rated = Object.entries(stats).filter(
-    ([t, s]) => (TIER_ORDER as string[]).includes(t) && s.n >= MIN_SAMPLES
+    ([t, s]) => (TIER_ORDER as string[]).includes(t) && s.n >= MIN_SAMPLES && t !== ruledOut
   );
   if (rated.length) {
     rated.sort((a, b) =>
